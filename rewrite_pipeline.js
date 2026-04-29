@@ -137,6 +137,35 @@ function shouldEnforceSexRatio(mood) {
   return true;
 }
 
+function buildRevisionFeedback({ styleQa, continuityQa, mood, chapter }) {
+  const blocking = isBlockingContinuityQa(continuityQa, ["critical", "high", "blocker"]);
+  return JSON.stringify({
+    instruction: "上一轮未通过。请先修复下列问题，再继续保持原核心写作目标。",
+    priority: blocking
+      ? "最高优先级：先修复高危连续性问题，禁止继续扩写会污染后文的错误事实。"
+      : "优先修复质检问题，同时保持基调和剧情事实稳定。",
+    original_boundary: {
+      chapter_title: chapter.title,
+      rule: "只允许改写本章原文已经发生或明确允许发生的事件；不得提前后文事件，不得改写人物身份、关系状态、制度规则。"
+    },
+    mood_guardrails: mood?.tone_guardrails ?? null,
+    style_qa: {
+      passed: Boolean(styleQa?.passed),
+      issues: normalizeIssueList(styleQa?.issues),
+      revision_advice: styleQa?.revision_advice ?? null
+    },
+    continuity_qa: {
+      passed: Boolean(continuityQa?.passed),
+      severity: continuitySeverity(continuityQa),
+      blocking,
+      issues: normalizeIssueList(continuityQa?.issues),
+      facts_delta: normalizeIssueList(continuityQa?.facts_delta),
+      risk_summary: continuityQa?.risk_summary ?? null,
+      revision_advice: continuityQa?.revision_advice ?? null
+    }
+  });
+}
+
 function splitChapters(text, fallbackChunkChars) {
   const pattern = /^(第[零一二三四五六七八九十百千万\d]+[章节卷回部].*)$/gm;
   const matches = [...text.matchAll(pattern)];
@@ -366,6 +395,7 @@ async function agentTensionDirector(client, chapter, mood, projectConfig, custom
     `配置：${compactConfig(projectConfig, customRules)}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n` +
     `上一轮质检反馈：${previousFeedback || "无"}\n\n` +
+    "如果上一轮反馈包含 blocking=true 或高危连续性问题，必须把修复该问题作为本轮分镜第一优先级，明确告诉主笔如何避免重复错误。\n\n" +
     `章节：${chapter.title}\n${chapter.content}`;
 
   return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
@@ -687,9 +717,11 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
       break;
     }
 
-    feedback = JSON.stringify({
-      style_qa: lastStyleQa.revision_advice ?? lastStyleQa,
-      continuity_qa: lastContinuityQa.revision_advice ?? lastContinuityQa
+    feedback = buildRevisionFeedback({
+      styleQa: lastStyleQa,
+      continuityQa: lastContinuityQa,
+      mood,
+      chapter
     });
   }
 
