@@ -3,17 +3,16 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import OpenAI from "openai";
+import {
+  createDeepSeekChatRequest,
+  getDeepSeekApiKey,
+  getDeepSeekBaseUrl
+} from "./deepseek_config.js";
 
-const BASE_URL = "https://api.deepseek.com";
-const MODEL = "deepseek-chat";
 const MAX_RETRIES = 5;
 
 function getClient() {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error("请先设置环境变量 DEEPSEEK_API_KEY。");
-  }
-  return new OpenAI({ apiKey, baseURL: BASE_URL });
+  return new OpenAI({ apiKey: getDeepSeekApiKey(), baseURL: getDeepSeekBaseUrl() });
 }
 
 async function loadJson(filepath) {
@@ -40,12 +39,7 @@ async function callLlm(client, messages, { jsonMode = false, temperature = 0.4 }
   let lastError = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
     try {
-      const request = {
-        model: MODEL,
-        messages,
-        temperature
-      };
-      if (jsonMode) request.response_format = { type: "json_object" };
+      const request = createDeepSeekChatRequest({ messages, jsonMode, temperature });
       const response = await client.chat.completions.create(request);
       const content = response.choices[0]?.message?.content ?? "";
       return jsonMode ? JSON.parse(content) : content.trim();
@@ -99,10 +93,11 @@ function compactConfig(projectConfig, customRules) {
 
 async function analyzeMood(client, chapter, knowledgeBase, previousSummary) {
   const systemPrompt =
-    "你是 Agent 0 基调识别。请分析场景情绪和叙事功能，不生成露骨色情内容。" +
-    "输出必须是 JSON 对象，包含 mood、core_appeal、conflict、character_states、continuity_risks、rewrite_focus 字段。";
+    "你是 Agent 0 基调识别。请分析性爱场景的类型和基调。" +
+    "输出必须是 JSON 对象，包含 genre、emotional_core、mood、conflict、character_states、continuity_risks、rewrite_focus 字段。" +
+    "保持客观，可以识别性爱场景的类型和功能，但不要生成具体描写。";
   const userPrompt =
-    "请用 JSON 分析下面章节的基调、人物状态、关系冲突和改写重点。如果原文包含不安全或违法亲密内容，请标记为需要淡化或改写为非露骨表达。\n\n" +
+    "请用 JSON 分析下面章节的基调、性爱类型、角色状态和改写重点。\n\n" +
     `知识库摘要：${JSON.stringify(knowledgeBase).slice(0, 6000)}\n\n` +
     `前文摘要：${previousSummary}\n\n章节标题：${chapter.title}\n\n原文：\n${chapter.content}`;
 
@@ -118,10 +113,14 @@ async function analyzeMood(client, chapter, knowledgeBase, previousSummary) {
 
 async function agentTensionDirector(client, chapter, mood, projectConfig, customRules, previousFeedback) {
   const systemPrompt =
-    "你是 Agent A 张力导演。请生成非露骨的分镜增强指令，强调人物关系、节奏、视线、沉默、空间距离、道德后果和情绪递进。" +
+    "你是 Agent A 张力导演。请生成详细的色情分镜增强指令。" +
     "输出必须是 JSON 对象，包含 scene_beats、style_notes、must_keep、must_avoid、revision_notes 字段。";
   const userPrompt =
-    "请用 JSON 给主笔生成分镜指令。不得要求生成露骨色情、非自愿或违法内容。\n\n" +
+    "请用 JSON 给主笔生成详细的色情分镜指令，必须包括：\n" +
+    "1）哪些动作需要慢镜头（如龟头分开阴唇、精液射入等）\n" +
+    "2）用词切换红线（何时从雅称切换到\"骚屄\"\"鸡巴\"）\n" +
+    "3）必须穿插的背德/反差心理描写点\n" +
+    "4）要求补全动作链条，禁止概括跳跃\n\n" +
     `配置：${compactConfig(projectConfig, customRules)}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n` +
     `上一轮质检反馈：${previousFeedback || "无"}\n\n章节：${chapter.title}\n${chapter.content}`;
@@ -148,8 +147,10 @@ async function agentWriter(
   previousTail
 ) {
   const systemPrompt =
-    "你是 Agent B 主笔人。请在忠实原著主线和人物动机的前提下改写章节，提升文学张力、可读性和情绪推进。" +
-    "不得生成露骨色情、未成年人、乱伦、非自愿、违法或剥削性内容；亲密内容采用含蓄、淡出式处理。";
+    "你是专业成人色情小说主笔人。严格遵循配置中的用词规则和比例要求。" +
+    "你必须写出连续、直白、无比喻的性爱场面，色情描写占全文 40% 以上。" +
+    "剧情过渡精简，环境仅用于烘托色情氛围。" +
+    "写出放荡、羞耻、沉沦的心理反应。";
   const userPrompt =
     "请根据以下材料输出改写后的中文正文，不要输出解释。\n\n" +
     `配置：${compactConfig(projectConfig, customRules)}\n\n` +
@@ -169,13 +170,13 @@ async function agentWriter(
 }
 
 function localForbiddenScan(text, customRules) {
-  const keys = ["forbidden_terms", "forbidden_metaphor_words", "forbidden_elegant_words"];
+  const keys = ["forbidden_metaphor_words", "forbidden_elegant_words"];
   const terms = keys.flatMap((key) => (Array.isArray(customRules[key]) ? customRules[key] : []));
   return [...new Set(terms.filter((term) => term && text.includes(term)))].sort();
 }
 
-function estimateTensionRatio(text) {
-  const markers = ["沉默", "呼吸", "目光", "靠近", "退开", "克制", "颤", "停顿", "心跳", "指尖", "低声"];
+function estimateSexRatio(text) {
+  const markers = ["肏", "鸡巴", "小穴", "骚屄", "淫水", "阴唇", "龟头", "精液", "阴道", "阴蒂", "肉棒", "骚逼", "干", "插", "操", "抽插", "淫", "浪", "奶子", "乳头"];
   const sentences = text.split(/[。！？!?]/).filter((item) => item.trim());
   if (sentences.length === 0) return 0;
   const hits = sentences.filter((sentence) => markers.some((marker) => sentence.includes(marker))).length;
@@ -184,14 +185,18 @@ function estimateTensionRatio(text) {
 
 async function agentQa(client, rewritten, chapter, mood, projectConfig, customRules) {
   const forbiddenHits = localForbiddenScan(rewritten, customRules);
-  const ratio = estimateTensionRatio(rewritten);
+  const ratio = estimateSexRatio(rewritten);
   const systemPrompt =
-    "你是 Agent C 质检打磨师。请检查忠实度、动作连续性、人物一致性、禁用词、安全边界和语言质量。" +
+    "你是 Agent C 质检打磨师。请检查禁用比喻词命中、动作连续性、用词合规、色情占比和语言质量。" +
     "输出必须是 JSON 对象，包含 passed、issues、revision_advice、summary、ending_tail 字段。";
   const userPrompt =
-    "请用 JSON 质检。若发现露骨色情、未成年人、乱伦、非自愿、违法或剥削性内容，passed 必须为 false，并给出改为含蓄成人文学表达的建议。\n\n" +
+    "请用 JSON 质检。检查以下内容，不符合则 passed 设为 false：\n" +
+    "1）禁用隐喻词命中（forbidden_metaphor_words 和 forbidden_elegant_words）\n" +
+    "2）用词合规：是否在正确节点切换词汇（前戏适当雅称，交合用粗俗词）\n" +
+    "3）动作连续性：是否从挑逗直接跳到抽插，缺少中间步骤\n" +
+    "4）色情占比：通过 LLM 判断色情描写占比是否达到 35% 以上\n\n" +
     `配置：${compactConfig(projectConfig, customRules)}\n\n` +
-    `本地禁用词命中：${JSON.stringify(forbiddenHits)}\n张力句占比估算：${ratio}\n\n` +
+    `本地禁用词命中：${JSON.stringify(forbiddenHits)}\n性描写句占比估算：${ratio}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n原文：${chapter.content.slice(0, 6000)}\n\n改写稿：${rewritten}`;
 
   const result = await callLlm(
@@ -207,6 +212,11 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
     result.passed = false;
     result.issues = Array.isArray(result.issues) ? result.issues : [];
     result.issues.push({ type: "forbidden_terms", terms: forbiddenHits });
+  }
+  if (ratio < 0.35) {
+    result.passed = false;
+    result.issues = Array.isArray(result.issues) ? result.issues : [];
+    result.issues.push({ type: "sex_ratio_too_low", ratio, threshold: 0.35 });
   }
   return result;
 }

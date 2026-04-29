@@ -3,18 +3,17 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import OpenAI from "openai";
+import {
+  createDeepSeekChatRequest,
+  getDeepSeekApiKey,
+  getDeepSeekBaseUrl
+} from "./deepseek_config.js";
 
-const BASE_URL = "https://api.deepseek.com";
-const MODEL = "deepseek-chat";
 const CHUNK_CHARS = 18000;
 const MAX_RETRIES = 5;
 
 function getClient() {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error("请先设置环境变量 DEEPSEEK_API_KEY。");
-  }
-  return new OpenAI({ apiKey, baseURL: BASE_URL });
+  return new OpenAI({ apiKey: getDeepSeekApiKey(), baseURL: getDeepSeekBaseUrl() });
 }
 
 async function readTxt(filepath) {
@@ -57,12 +56,7 @@ async function callLlm(client, messages, { jsonMode = false, temperature = 0.2 }
   let lastError = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
     try {
-      const request = {
-        model: MODEL,
-        messages,
-        temperature
-      };
-      if (jsonMode) request.response_format = { type: "json_object" };
+      const request = createDeepSeekChatRequest({ messages, jsonMode, temperature });
       const response = await client.chat.completions.create(request);
       const content = response.choices[0]?.message?.content ?? "";
       return jsonMode ? JSON.parse(content) : content;
@@ -77,7 +71,8 @@ async function callLlm(client, messages, { jsonMode = false, temperature = 0.2 }
 
 async function analyzeChunk(client, chunk, index, total) {
   const systemPrompt =
-    "你是中文长篇小说的文学分析师。请只做结构化分析，不生成露骨色情内容。" +
+    "你是中文长篇小说的文学分析师。请只做结构化分析。" +
+    "可以识别性爱场景的类型和功能，但不要生成具体描写。" +
     "输出必须是 JSON 对象，包含 characters、plot_points、relationship_changes、tone、open_threads、chapter_candidates 字段。";
   const userPrompt =
     `这是全文分块 ${index}/${total}。请用 JSON 分析这一块的角色、事件、关系变化、情绪基调、悬念和可能章节节点。保持客观，避免补写剧情。\n\n${chunk}`;
@@ -95,9 +90,9 @@ async function analyzeChunk(client, chunk, index, total) {
 async function mergeAnalyses(client, title, analyses) {
   const systemPrompt =
     "你是长篇小说制片统筹。请把分块分析合并为可供改写系统使用的知识库。" +
-    "输出必须是 JSON 对象，包含 title、characters、chapter_blueprint、relationship_map、global_tone、continuity_notes、safety_notes 字段。";
+    "输出必须是 JSON 对象，包含 title、characters、chapter_blueprint、relationship_map、global_tone、continuity_notes 字段。";
   const userPrompt =
-    "请合并下面的分块分析为一个完整 JSON 知识库。要求去重角色、统一称谓、保留主线，不要生成露骨色情内容。\n\n" +
+    "请合并下面的分块分析为一个完整 JSON 知识库。要求去重角色、统一称谓、保留主线。\n\n" +
     JSON.stringify({ title, chunk_analyses: analyses });
 
   return callLlm(
