@@ -1,82 +1,31 @@
-# 自动化成人色情小说改写项目
+# 自动化小说改写项目
 
-这是一个基于 DeepSeek API 的长篇中文成人色情小说改写流水线。项目支持长文本分块、知识库构建、章节级改写、上下文摘要传递、重试机制和质检回路。
-
-> 说明：本项目实现为成人色情小说优化工具，所有活动围绕色情核心展开。色情描写占比目标 40%，支持多角色原案（母亲、师尊、仙子、烂货/公交车），严格遵循用词规则和比喻禁用标准。背德与纯爱基调严格区分，不混用。
+这是一个基于 DeepSeek API 的 Node.js 长篇中文小说改写流水线，支持知识库构建、章节级改写、多 Agent 质检、详细日志、时间戳版本目录和断点续跑。
 
 ## 文件说明
 
-- `custom_rules.json`：用户可随时修改的规则、禁用词、角色备注和高级指令。
-- `project_config.json`：项目核心标准，包含写作目标、安全边界和风格约束。
-- `build_knowledge_base.py`：阶段一脚本，分析全文并生成知识库。
-- `rewrite_pipeline.py`：阶段二/三主循环，使用多 Agent 流程完成改写与质检。
-- `requirements.txt`：Python 依赖。
-- `package.json`：Node.js 备选实现依赖和脚本。
-- `build_knowledge_base.js`：Node.js 知识库构建脚本。
-- `rewrite_pipeline.js`：Node.js 改写流水线脚本。
+- `custom_rules.json`：用户可调整的改写规则、禁用词、角色备注和高级指令。
+- `project_config.json`：项目核心标准和风格约束。
+- `build_knowledge_base.js`：分析全文并生成知识库。
+- `rewrite_pipeline.js`：主改写流水线。
+- `deepseek_config.js`：读取 DeepSeek 环境变量并构造请求。
+- `package.json`：Node.js 依赖和 npm 脚本。
 
 ## 配置 API Key
 
-推荐使用环境变量：
+推荐新建 `.env.local`，不要把真实密钥写进 README 或提交到 Git：
 
-Windows PowerShell:
-
-```powershell
-$env:DEEPSEEK_API_KEY="你的 DeepSeek API Key"
+```env
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-pro
+DEEPSEEK_THINKING_TYPE=enabled
+DEEPSEEK_REASONING_EFFORT=high
 ```
 
-macOS / Linux / Git Bash:
+如果曾经把真实 Key 写进仓库文件，建议立刻到平台后台轮换密钥。
 
-```bash
-export DEEPSEEK_API_KEY="你的 DeepSeek API Key"
-```
-
-代码默认使用：
-
-- `base_url`: `https://api.deepseek.com`
-- `model`: `deepseek-chat`
-
-## Python 使用方式
-
-安装依赖：
-
-```bash
-pip install -r requirements.txt
-```
-
-生成知识库：
-
-```bash
-python build_knowledge_base.py
-```
-
-按提示输入小说 TXT 路径后，会生成：
-
-```text
-knowledge_base_<小说名>.json
-```
-
-执行改写：
-
-```bash
-python rewrite_pipeline.py
-```
-
-按提示输入小说 TXT 路径和知识库 JSON 路径。完成后会生成：
-
-```text
-<原名>_精修版.txt
-```
-
-处理中还会持续写入检查点：
-
-```text
-<原名>_rewrite_checkpoint.txt
-```
-
-## Node.js 备选方式
-
-当前环境检测到 `python` 命令不可稳定返回版本信息，因此已同时提供 Node.js 等效实现。
+## 安装与运行
 
 安装依赖：
 
@@ -96,32 +45,55 @@ npm run build-kb
 npm run rewrite
 ```
 
-## 工作流程
+脚本会依次询问：
 
-1. `build_knowledge_base` 会先按较大文本块分析全文，提取角色档案、章节蓝图、关系变化、全局基调和连续性注意事项。
-2. `rewrite_pipeline` 会按“第 X 章”等章节标记切分原文；若没有明显章节标记，则按段落和固定长度进行语义分块。
-3. 每章改写前，Agent 0 先识别基调、核心冲突和连续性风险。
-4. Agent A 根据配置、知识库和质检反馈生成分镜增强指令。
-5. Agent B 执行改写，保持主线、人物动机和前后文连贯。
-6. Agent C 做禁用比喻词、动作连续性、用词合规、色情占比和语言质量检查；未通过则反馈给下一轮重写。
-7. 每章通过后更新全局摘要和前章尾部上下文，保证长篇处理的连贯性。
+- 小说 TXT 路径
+- 知识库 JSON 路径
+- 断点续跑目录，直接回车则新建一次运行
 
-## 调整规则
+## 输出结构
 
-日常调整优先修改 `custom_rules.json`：
+每次新运行都会生成独立目录：
 
-- `forbidden_metaphor_words`：不希望出现的比喻结构词（像、如、仿佛等）。
-- `forbidden_elegant_words`：不希望出现的套话或雅称（花唇、蜜壶、玉门等）。
-- `global_style.max_rewrite_attempts`：每章最大重写次数。
-- `global_style.fallback_chunk_chars`：无章节标记时的分块长度。
-- `global_style.context_tail_chars`：传给下一章的前文结尾长度。
-- `character_specific_notes`：针对具体角色的备注。
-- `advanced_directives`：全局张力原则（禁欲符号色情化、身份倒错慢镜、罪恶快感增量、忠实基调）和角色原案（母亲、师尊、仙子、烂货/公交车）。
+```text
+outputs/<时间戳>_<小说名>_<原文hash>/
+```
 
-`project_config.json` 建议少改，用于保存项目核心标准和风格约束。
+主要文件：
 
+- `manifest.json`：运行清单，记录每章状态、尝试次数、采用稿、风险信息。
+- `events.jsonl`：详细结构化日志，每行一个事件。
+- `facts_ledger.json`：剧情事实账本，用于约束后续章节连续性。
+- `summary_state.json`：前文摘要和前章结尾状态。
+- `rewrite_checkpoint.txt`：当前已完成章节合并稿。
+- `<小说名>_精修版.txt`：最终输出。
+- `chapters/`：每章独立目录，保存每次尝试、导演指令、风格质检、连续性质检和采用稿。
 
-export DEEPSEEK_API_KEY="sk-5125301ee8c14d7e8269152a35d454e7"
-export DEEPSEEK_BASE_URL=https://api.deepseek.com
-export DEEPSEEK_MODEL=deepseek-chat
-npm run build-kb
+## 断点续跑
+
+如果程序中断，重新运行：
+
+```bash
+npm run rewrite
+```
+
+前两个输入仍填原小说和知识库，第三个输入填写已有运行目录，例如：
+
+```text
+outputs/20260430_043800_小说名_ab12cd34ef56
+```
+
+脚本会读取 `manifest.json`，跳过已完成章节，从第一个未完成章节继续。
+
+## 质检流程
+
+主流程按章节顺序执行：
+
+1. Agent 0：分析当前章节基调、角色状态、允许发生的状态变化。
+2. Agent A：生成改写指令，明确必须保留和禁止新增的事实。
+3. Agent B：生成改写稿。
+4. Agent C：做风格、禁用词、连续叙事和目标占比检查。
+5. Agent D：专门做剧情连续性质检，检查时间线、关系身份、承诺、制度规则和“已发生/未发生”冲突。
+6. 事实账本维护：把稳定事实写入 `facts_ledger.json`，供后续章节使用。
+
+这样可以降低“前面已经发生，后面又当作没发生”这类连续性错误。

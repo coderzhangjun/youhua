@@ -46,7 +46,6 @@ function loadLocalEnv() {
 export function getDeepSeekApiKey() {
   loadLocalEnv();
   const apiKey = process.env.DEEPSEEK_API_KEY;
-  console.log(49, process.env);
   if (!apiKey || apiKey === "填入你的 DeepSeek API Key") {
     throw new Error("请先在 .env.local 中填写 DEEPSEEK_API_KEY。");
   }
