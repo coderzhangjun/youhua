@@ -109,6 +109,34 @@ function normalizeIssueList(value) {
   return [value];
 }
 
+function normalizeSeverity(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function continuitySeverity(qa) {
+  const rootSeverity = normalizeSeverity(qa?.severity);
+  const issueSeverities = normalizeIssueList(qa?.issues)
+    .map((issue) => normalizeSeverity(issue?.severity ?? issue?.level ?? issue?.risk))
+    .filter(Boolean);
+  return [rootSeverity, ...issueSeverities].filter(Boolean);
+}
+
+function isBlockingContinuityQa(qa, blockingSeverities) {
+  if (Boolean(qa?.passed)) return false;
+  const blockingSet = new Set(blockingSeverities.map((item) => normalizeSeverity(item)));
+  const severities = continuitySeverity(qa);
+  if (severities.length === 0) return true;
+  return severities.some((severity) => blockingSet.has(severity));
+}
+
+function shouldEnforceSexRatio(mood) {
+  const genre = normalizeSeverity(mood?.genre);
+  const guardrails = JSON.stringify(mood?.tone_guardrails ?? "");
+  if (genre === "none") return false;
+  if (guardrails.includes("禁止加入任何性爱描写") || guardrails.includes("禁止性描写")) return false;
+  return true;
+}
+
 function splitChapters(text, fallbackChunkChars) {
   const pattern = /^(第[零一二三四五六七八九十百千万\d]+[章节卷回部].*)$/gm;
   const matches = [...text.matchAll(pattern)];
@@ -392,6 +420,7 @@ function estimateSexRatio(text) {
 async function agentQa(client, rewritten, chapter, mood, projectConfig, customRules, logger, meta) {
   const forbiddenHits = localForbiddenScan(rewritten, customRules);
   const ratio = estimateSexRatio(rewritten);
+  const enforceSexRatio = shouldEnforceSexRatio(mood);
   const systemPrompt =
     "你是 Agent C 质检打磨师。请检查禁用比喻词命中、动作连续性、用词合规、" +
     "色情占比、非色情剧情精简度、基调忠实度和语言质量。" +
@@ -401,12 +430,13 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
     "1）禁用隐喻词命中（forbidden_metaphor_words 和 forbidden_elegant_words）\n" +
     "2）用词合规：是否在正确节点切换词汇（前戏适当雅称，交合用粗俗词）\n" +
     "3）动作连续性：是否从挑逗直接跳到抽插，缺少中间步骤\n" +
-    "4）色情占比：通过 LLM 判断色情描写占比是否达到 35% 以上\n" +
+    "4）色情占比：仅当 Agent 0 判定本章存在性爱/色情场景且未禁止性描写时，判断色情描写占比是否达到 35% 以上；若 genre=none 或 tone_guardrails 禁止性描写，则不得因色情占比不足判失败\n" +
     "5）非色情剧情是否冗余：背景、环境、路人对白、设定说明若不服务色情张力、人物关系、禁忌提醒物或后续硬伏笔，必须要求删减\n" +
     "6）基调是否被扭曲：不得把 pure_love 强行改成 ntr，也不得把背德戏洗成纯爱\n\n" +
     `配置：${compactConfig(projectConfig, customRules)}\n\n` +
     `本地禁用词命中：${JSON.stringify(forbiddenHits)}\n` +
-    `性描写句占比估算：${ratio}\n\n` +
+    `性描写句占比估算：${ratio}\n` +
+    `本章是否强制检查色情占比：${enforceSexRatio}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n原文：${chapter.content.slice(0, 6000)}\n\n改写稿：${rewritten}`;
 
   const result = await callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
@@ -422,7 +452,7 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
     result.passed = false;
     result.issues.push({ type: "forbidden_terms", terms: forbiddenHits });
   }
-  if (ratio < 0.35) {
+  if (enforceSexRatio && ratio < 0.35) {
     result.passed = false;
     result.issues.push({ type: "sex_ratio_too_low", ratio, threshold: 0.35 });
   }
@@ -432,9 +462,14 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
 async function agentContinuityQa(client, rewritten, chapter, mood, previousSummary, factsLedger, logger, meta) {
   const systemPrompt =
     "你是 Agent D 连续性审校。你的唯一职责是找剧情事实、人物关系、时间线、承诺、制度规则与前文账本的冲突。" +
-    "不要评价文风。输出必须是 JSON 对象，包含 passed、severity、issues、revision_advice、facts_delta、risk_summary 字段。";
+    "不要评价文风。输出必须是 JSON 对象，包含 passed、severity、issues、revision_advice、facts_delta、risk_summary 字段。" +
+    "severity 只能使用 low、medium、major、high、critical、blocker。只有高危关系/时间线/重大事件矛盾才用 high、critical 或 blocker；普通名词、地点、称谓错误通常用 major 或 medium。";
   const userPrompt =
     "请严格检查改写稿是否擅自新增、提前、删除或反转重大事实。尤其关注：第一次/已发生/未发生、关系身份、承诺契约、礼法制度、前后称谓与时间顺序。\n\n" +
+    "分级标准：\n" +
+    "- blocker/critical/high：会污染后续主线的重大矛盾，例如把未发生的性关系写成已发生、把关系身份改错、提前后文关键事件、破坏核心制度规则。\n" +
+    "- major：明确事实错误但可按 revision_advice 自动修复，例如地点名、院落名、物品名、人物称谓写错。\n" +
+    "- medium/low：局部表达不严谨或轻微遗漏。\n\n" +
     `前文摘要：${previousSummary || "无"}\n\n` +
     `剧情事实账本：${JSON.stringify(factsLedger).slice(0, 12000)}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n` +
@@ -660,7 +695,11 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
 
   if (!accepted) {
     const continuityPassed = Boolean(lastContinuityQa?.passed);
-    if (!continuityPassed && !allowForcedAcceptOnContinuityFailure) {
+    const blockingContinuity = isBlockingContinuityQa(
+      lastContinuityQa,
+      customRules.global_style?.blocking_continuity_severities ?? ["critical", "high", "blocker"]
+    );
+    if (blockingContinuity && !allowForcedAcceptOnContinuityFailure) {
       const failureQa = { style: lastStyleQa, continuity: lastContinuityQa, forced_accept_blocked: true };
       const failedQaPath = path.join(dir, "failed_qa.json");
       await writeJson(failedQaPath, failureQa);
@@ -668,6 +707,7 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
       chapterState.status = "failed";
       chapterState.finishedAt = nowIso();
       chapterState.failedReason = "continuity_qa_failed";
+      chapterState.continuitySeverity = continuitySeverity(lastContinuityQa);
       chapterState.qaPath = path.relative(run.runDir, failedQaPath).replaceAll("\\", "/");
       chapterState.risks = {
         style: normalizeIssueList(lastStyleQa?.issues),
@@ -680,10 +720,11 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
         chapterTitle: chapter.title,
         stylePassed: Boolean(lastStyleQa?.passed),
         continuityPassed,
-        message: "连续性质检未通过，已停止流水线；请查看 failed_qa.json 和各 attempt_*_continuity_qa.json"
+        continuitySeverity: continuitySeverity(lastContinuityQa),
+        message: "连续性质检存在高危问题，已停止流水线；请查看 failed_qa.json 和各 attempt_*_continuity_qa.json"
       });
 
-      throw new Error(`章节「${chapter.title}」连续性质检未通过，已停止以避免污染后文。`);
+      throw new Error(`章节「${chapter.title}」连续性质检存在高危问题，已停止以避免污染后文。`);
     }
 
     accepted = lastDraft;
@@ -693,7 +734,8 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
       chapterTitle: chapter.title,
       stylePassed: Boolean(lastStyleQa?.passed),
       continuityPassed,
-      message: "达到最大重试次数，使用最后一版并保留风格质检风险"
+      continuitySeverity: continuitySeverity(lastContinuityQa),
+      message: "达到最大重试次数，使用最后一版并保留非高危质检风险"
     });
   }
 

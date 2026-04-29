@@ -21,6 +21,11 @@
     "plot_compression_policy": "所有无关色情剧情核心的过渡、背景、路人对白和设定说明必须精简；只保留服务于色情张力、人物关系变化、后续伏笔、世界观硬规则的内容。",
     "tone_fidelity_policy": "不扭曲原著基调，让 Agent 0 自主判断场景类型；纯爱不加背德，背德不洗成纯爱，支配/臣服不改成平等调情。",
     "allow_forced_accept_on_continuity_failure": false,
+    "blocking_continuity_severities": [
+      "critical",
+      "high",
+      "blocker"
+    ],
     "max_rewrite_attempts": 3,
     "max_chapter_chars": 12000,
     "fallback_chunk_chars": 8000,
