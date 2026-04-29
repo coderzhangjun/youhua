@@ -81,7 +81,8 @@ def call_llm(client: OpenAI, messages: list[dict[str, str]], json_mode: bool = F
 
 def analyze_chunk(client: OpenAI, chunk: str, index: int, total: int) -> dict[str, Any]:
     system_prompt = (
-        "你是中文长篇小说的文学分析师。请只做结构化分析，不生成露骨色情内容。"
+        "你是中文长篇小说的文学分析师。请只做结构化分析。"
+        "可以识别性爱场景的类型和功能，但不要生成具体描写。"
         "输出必须是 JSON 对象，包含 characters、plot_points、relationship_changes、"
         "tone、open_threads、chapter_candidates 字段。"
     )
@@ -104,11 +105,10 @@ def merge_analyses(client: OpenAI, title: str, analyses: list[dict[str, Any]]) -
     system_prompt = (
         "你是长篇小说制片统筹。请把分块分析合并为可供改写系统使用的知识库。"
         "输出必须是 JSON 对象，包含 title、characters、chapter_blueprint、"
-        "relationship_map、global_tone、continuity_notes、safety_notes 字段。"
+        "relationship_map、global_tone、continuity_notes 字段。"
     )
     user_prompt = (
-        "请合并下面的分块分析为一个完整 JSON 知识库。要求去重角色、统一称谓、保留主线，"
-        "不要生成露骨色情内容。\n\n"
+        "请合并下面的分块分析为一个完整 JSON 知识库。要求去重角色、统一称谓、保留主线。\n\n"
         + json.dumps({"title": title, "chunk_analyses": analyses}, ensure_ascii=False)
     )
     return call_llm(

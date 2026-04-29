@@ -118,13 +118,13 @@ def analyze_mood(
     previous_summary: str,
 ) -> dict[str, Any]:
     system_prompt = (
-        "你是 Agent 0 基调识别。请分析场景情绪和叙事功能，不生成露骨色情内容。"
-        "输出必须是 JSON 对象，包含 mood、core_appeal、conflict、character_states、"
-        "continuity_risks、rewrite_focus 字段。"
+        "你是 Agent 0 基调识别。请分析性爱场景的类型和基调。"
+        "输出必须是 JSON 对象，包含 genre、emotional_core、mood、conflict、"
+        "character_states、continuity_risks、rewrite_focus 字段。"
+        "保持客观，可以识别性爱场景的类型和功能，但不要生成具体描写。"
     )
     user_prompt = (
-        "请用 JSON 分析下面章节的基调、人物状态、关系冲突和改写重点。"
-        "如果原文包含不安全或违法亲密内容，请标记为需要淡化或改写为非露骨表达。\n\n"
+        "请用 JSON 分析下面章节的基调、性爱类型、角色状态和改写重点。\n\n"
         f"知识库摘要：{json.dumps(knowledge_base, ensure_ascii=False)[:6000]}\n\n"
         f"前文摘要：{previous_summary}\n\n"
         f"章节标题：{chapter['title']}\n\n"
@@ -150,12 +150,15 @@ def agent_tension_director(
     previous_feedback: str,
 ) -> dict[str, Any]:
     system_prompt = (
-        "你是 Agent A 张力导演。请生成非露骨的分镜增强指令，强调人物关系、节奏、"
-        "视线、沉默、空间距离、道德后果和情绪递进。输出必须是 JSON 对象，包含 "
-        "scene_beats、style_notes、must_keep、must_avoid、revision_notes 字段。"
+        "你是 Agent A 张力导演。请生成详细的色情分镜增强指令。输出必须是 JSON 对象，"
+        "包含 scene_beats、style_notes、must_keep、must_avoid、revision_notes 字段。"
     )
     user_prompt = (
-        "请用 JSON 给主笔生成分镜指令。不得要求生成露骨色情、非自愿或违法内容。\n\n"
+        "请用 JSON 给主笔生成详细的色情分镜指令，必须包括：\n"
+        "1）哪些动作需要慢镜头（如龟头分开阴唇、精液射入等）\n"
+        "2）用词切换红线（何时从雅称切换到\"骚屄\"\"鸡巴\"）\n"
+        "3）必须穿插的背德/反差心理描写点\n"
+        "4）要求补全动作链条，禁止概括跳跃\n\n"
         f"配置：{compact_config(project_config, custom_rules)}\n\n"
         f"基调分析：{json.dumps(mood, ensure_ascii=False)}\n\n"
         f"上一轮质检反馈：{previous_feedback or '无'}\n\n"
@@ -184,9 +187,10 @@ def agent_writer(
     previous_tail: str,
 ) -> str:
     system_prompt = (
-        "你是 Agent B 主笔人。请在忠实原著主线和人物动机的前提下改写章节，"
-        "提升文学张力、可读性和情绪推进。不得生成露骨色情、未成年人、乱伦、"
-        "非自愿、违法或剥削性内容；亲密内容采用含蓄、淡出式处理。"
+        "你是专业成人色情小说主笔人。严格遵循配置中的用词规则和比例要求。"
+        "你必须写出连续、直白、无比喻的性爱场面，色情描写占全文 40% 以上。"
+        "剧情过渡精简，环境仅用于烘托色情氛围。"
+        "写出放荡、羞耻、沉沦的心理反应。"
     )
     user_prompt = (
         "请根据以下材料输出改写后的中文正文，不要输出解释。\n\n"
@@ -211,31 +215,23 @@ def agent_writer(
 
 def local_forbidden_scan(text: str, custom_rules: dict[str, Any]) -> list[str]:
     terms: list[str] = []
-    for key in ("forbidden_terms", "forbidden_metaphor_words", "forbidden_elegant_words"):
+    for key in ("forbidden_metaphor_words", "forbidden_elegant_words"):
         values = custom_rules.get(key, [])
         if isinstance(values, list):
             terms.extend(str(value) for value in values)
     return sorted({term for term in terms if term and term in text})
 
 
-def estimate_tension_ratio(text: str) -> float:
-    tension_markers = (
-        "沉默",
-        "呼吸",
-        "目光",
-        "靠近",
-        "退开",
-        "克制",
-        "颤",
-        "停顿",
-        "心跳",
-        "指尖",
-        "低声",
+def estimate_sex_ratio(text: str) -> float:
+    sex_markers = (
+        "肏", "鸡巴", "小穴", "骚屄", "淫水", "阴唇", "龟头",
+        "精液", "阴道", "阴蒂", "肉棒", "骚逼", "干", "插",
+        "操", "抽插", "淫", "浪", "奶子", "乳头",
     )
     sentences = [item for item in re.split(r"[。！？!?]", text) if item.strip()]
     if not sentences:
         return 0.0
-    hits = sum(1 for sentence in sentences if any(marker in sentence for marker in tension_markers))
+    hits = sum(1 for sentence in sentences if any(marker in sentence for marker in sex_markers))
     return round(hits / len(sentences), 3)
 
 
@@ -248,19 +244,22 @@ def agent_qa(
     custom_rules: dict[str, Any],
 ) -> dict[str, Any]:
     forbidden_hits = local_forbidden_scan(rewritten, custom_rules)
-    ratio = estimate_tension_ratio(rewritten)
+    ratio = estimate_sex_ratio(rewritten)
 
     system_prompt = (
-        "你是 Agent C 质检打磨师。请检查忠实度、动作连续性、人物一致性、禁用词、"
-        "安全边界和语言质量。输出必须是 JSON 对象，包含 passed、issues、"
+        "你是 Agent C 质检打磨师。请检查禁用比喻词命中、动作连续性、用词合规、"
+        "色情占比和语言质量。输出必须是 JSON 对象，包含 passed、issues、"
         "revision_advice、summary、ending_tail 字段。"
     )
     user_prompt = (
-        "请用 JSON 质检。若发现露骨色情、未成年人、乱伦、非自愿、违法或剥削性内容，"
-        "passed 必须为 false，并给出改为含蓄成人文学表达的建议。\n\n"
+        "请用 JSON 质检。检查以下内容，不符合则 passed 设为 false：\n"
+        "1）禁用隐喻词命中（forbidden_metaphor_words 和 forbidden_elegant_words）\n"
+        "2）用词合规：是否在正确节点切换词汇（前戏适当雅称，交合用粗俗词）\n"
+        "3）动作连续性：是否从挑逗直接跳到抽插，缺少中间步骤\n"
+        "4）色情占比：通过 LLM 判断色情描写占比是否达到 35% 以上\n\n"
         f"配置：{compact_config(project_config, custom_rules)}\n\n"
         f"本地禁用词命中：{forbidden_hits}\n"
-        f"张力句占比估算：{ratio}\n\n"
+        f"性描写句占比估算：{ratio}\n\n"
         f"基调分析：{json.dumps(mood, ensure_ascii=False)}\n\n"
         f"原文：{chapter['content'][:6000]}\n\n"
         f"改写稿：{rewritten}"
@@ -279,6 +278,10 @@ def agent_qa(
         result["passed"] = False
         result.setdefault("issues", [])
         result["issues"].append({"type": "forbidden_terms", "terms": forbidden_hits})
+    if ratio < 0.35:
+        result["passed"] = False
+        result.setdefault("issues", [])
+        result["issues"].append({"type": "sex_ratio_too_low", "ratio": ratio, "threshold": 0.35})
     return result
 
 
