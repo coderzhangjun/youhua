@@ -119,3 +119,9 @@ npm run rewrite
 - `advanced_directives`：全局张力原则（禁欲符号色情化、身份倒错慢镜、罪恶快感增量、忠实基调）和角色原案（母亲、师尊、仙子、烂货/公交车）。
 
 `project_config.json` 建议少改，用于保存项目核心标准和风格约束。
+
+
+export DEEPSEEK_API_KEY="sk-5125301ee8c14d7e8269152a35d454e7"
+export DEEPSEEK_BASE_URL=https://api.deepseek.com
+export DEEPSEEK_MODEL=deepseek-chat
+npm run build-kb

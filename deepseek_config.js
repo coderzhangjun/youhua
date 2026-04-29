@@ -46,6 +46,7 @@ function loadLocalEnv() {
 export function getDeepSeekApiKey() {
   loadLocalEnv();
   const apiKey = process.env.DEEPSEEK_API_KEY;
+  console.log(49, process.env);
   if (!apiKey || apiKey === "填入你的 DeepSeek API Key") {
     throw new Error("请先在 .env.local 中填写 DEEPSEEK_API_KEY。");
   }
@@ -57,15 +58,22 @@ export function getDeepSeekBaseUrl() {
   return process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL;
 }
 
-export function createDeepSeekChatRequest({ messages, jsonMode = false, temperature = 0.4 }) {
+export function createDeepSeekChatRequest({
+  messages,
+  jsonMode = false,
+  temperature = 0.4,
+}) {
   loadLocalEnv();
 
   const request = {
     model: process.env.DEEPSEEK_MODEL || DEFAULT_MODEL,
     messages,
     temperature,
-    thinking: { type: process.env.DEEPSEEK_THINKING_TYPE || DEFAULT_THINKING_TYPE },
-    reasoning_effort: process.env.DEEPSEEK_REASONING_EFFORT || DEFAULT_REASONING_EFFORT
+    thinking: {
+      type: process.env.DEEPSEEK_THINKING_TYPE || DEFAULT_THINKING_TYPE,
+    },
+    reasoning_effort:
+      process.env.DEEPSEEK_REASONING_EFFORT || DEFAULT_REASONING_EFFORT,
   };
 
   if (jsonMode) request.response_format = { type: "json_object" };
