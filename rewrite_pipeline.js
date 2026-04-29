@@ -51,6 +51,13 @@ function shortHash(content) {
   return sha256(content).slice(0, 12);
 }
 
+function safeLogPart(value) {
+  return String(value ?? "unknown")
+    .replace(/[\\/:*?"<>|\s]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 60) || "unknown";
+}
+
 function countChars(value) {
   return typeof value === "string" ? value.length : JSON.stringify(value ?? "").length;
 }
@@ -166,10 +173,38 @@ class RunLogger {
     await fs.appendFile(this.eventsPath, `${JSON.stringify(payload)}\n`, "utf8");
 
     const prefix = level === "error" ? "✖" : level === "warn" ? "!" : "·";
+    const stage = data.stage ? `:${data.stage}` : "";
     const chapter = data.chapterTitle ? ` ${data.chapterTitle}` : "";
     const attempt = data.attempt ? ` 尝试${data.attempt}` : "";
     const detail = data.message ? ` - ${data.message}` : "";
-    console.log(`${prefix} [${type}]${chapter}${attempt}${detail}`);
+    console.log(`${prefix} [${type}${stage}]${chapter}${attempt}${detail}`);
+  }
+
+  async saveJsonParseError({ stage, chapterIndex, chapterTitle, attempt, retry, content, error }) {
+    const dir = path.join(this.runDir, "json_parse_errors");
+    await ensureDir(dir);
+    const filename = [
+      String(chapterIndex ?? "x").padStart(3, "0"),
+      safeLogPart(chapterTitle),
+      safeLogPart(stage),
+      attempt ? `attempt_${attempt}` : "no_attempt",
+      `retry_${retry}`,
+      `${Date.now()}.txt`
+    ].join("__");
+    const filepath = path.join(dir, filename);
+    const payload = [
+      `stage: ${stage ?? ""}`,
+      `chapterIndex: ${chapterIndex ?? ""}`,
+      `chapterTitle: ${chapterTitle ?? ""}`,
+      `attempt: ${attempt ?? ""}`,
+      `retry: ${retry ?? ""}`,
+      `error: ${error.message}`,
+      "",
+      "----- RAW RESPONSE -----",
+      content
+    ].join("\n");
+    await atomicWrite(filepath, payload);
+    return filepath;
   }
 }
 
@@ -217,7 +252,31 @@ async function callLlm(client, messages, {
         usage: response.usage ?? null
       });
 
-      return jsonMode ? JSON.parse(content) : content.trim();
+      if (!jsonMode) return content.trim();
+
+      try {
+        return JSON.parse(content);
+      } catch (parseError) {
+        const rawResponsePath = await logger?.saveJsonParseError({
+          stage,
+          chapterIndex,
+          chapterTitle,
+          attempt,
+          retry,
+          content,
+          error: parseError
+        });
+        await logger?.event("warn", "json_parse_error", {
+          stage,
+          chapterIndex,
+          chapterTitle,
+          attempt,
+          retry,
+          rawResponsePath,
+          message: `${parseError.message}; 已保存原始响应`
+        });
+        throw parseError;
+      }
     } catch (error) {
       lastError = error;
       const durationMs = Date.now() - startedAt;
@@ -511,7 +570,7 @@ async function rebuildAcceptedOutput(run) {
   return accepted.join("\n\n");
 }
 
-async function processChapter(client, run, chapter, chapterIndex, total, projectConfig, customRules, knowledgeBase, state, maxAttempts, contextTailChars, logger) {
+async function processChapter(client, run, chapter, chapterIndex, total, projectConfig, customRules, knowledgeBase, state, maxAttempts, contextTailChars, allowForcedAcceptOnContinuityFailure, logger) {
   const chapterState = run.manifest.chapters[chapterIndex];
   const dir = path.join(run.chaptersDir, chapterDirName(chapterIndex, chapter.title));
   await ensureDir(dir);
@@ -569,14 +628,17 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
     await writeJson(path.join(dir, `attempt_${attempt}_continuity_qa.json`), lastContinuityQa);
 
     const passed = Boolean(lastStyleQa.passed) && Boolean(lastContinuityQa.passed);
+    const styleIssueCount = normalizeIssueList(lastStyleQa.issues).length;
+    const continuityIssueCount = normalizeIssueList(lastContinuityQa.issues).length;
     await logger.event(passed ? "info" : "warn", "attempt_result", {
       ...attemptMeta,
       passed,
       stylePassed: Boolean(lastStyleQa.passed),
       continuityPassed: Boolean(lastContinuityQa.passed),
-      styleIssueCount: normalizeIssueList(lastStyleQa.issues).length,
-      continuityIssueCount: normalizeIssueList(lastContinuityQa.issues).length,
-      draftChars: lastDraft.length
+      styleIssueCount,
+      continuityIssueCount,
+      draftChars: lastDraft.length,
+      message: `style=${Boolean(lastStyleQa.passed)}(${styleIssueCount}), continuity=${Boolean(lastContinuityQa.passed)}(${continuityIssueCount}), draftChars=${lastDraft.length}`
     });
 
     chapterState.attempts = attempt;
@@ -597,12 +659,41 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
   }
 
   if (!accepted) {
+    const continuityPassed = Boolean(lastContinuityQa?.passed);
+    if (!continuityPassed && !allowForcedAcceptOnContinuityFailure) {
+      const failureQa = { style: lastStyleQa, continuity: lastContinuityQa, forced_accept_blocked: true };
+      const failedQaPath = path.join(dir, "failed_qa.json");
+      await writeJson(failedQaPath, failureQa);
+
+      chapterState.status = "failed";
+      chapterState.finishedAt = nowIso();
+      chapterState.failedReason = "continuity_qa_failed";
+      chapterState.qaPath = path.relative(run.runDir, failedQaPath).replaceAll("\\", "/");
+      chapterState.risks = {
+        style: normalizeIssueList(lastStyleQa?.issues),
+        continuity: normalizeIssueList(lastContinuityQa?.issues)
+      };
+      await saveManifest(run, { status: "failed" });
+
+      await logger.event("error", "chapter_failed", {
+        chapterIndex,
+        chapterTitle: chapter.title,
+        stylePassed: Boolean(lastStyleQa?.passed),
+        continuityPassed,
+        message: "连续性质检未通过，已停止流水线；请查看 failed_qa.json 和各 attempt_*_continuity_qa.json"
+      });
+
+      throw new Error(`章节「${chapter.title}」连续性质检未通过，已停止以避免污染后文。`);
+    }
+
     accepted = lastDraft;
     acceptedQa = { style: lastStyleQa, continuity: lastContinuityQa, forced_accept: true };
     await logger.event("warn", "forced_accept", {
       chapterIndex,
       chapterTitle: chapter.title,
-      message: "达到最大重试次数，使用最后一版并保留质检风险"
+      stylePassed: Boolean(lastStyleQa?.passed),
+      continuityPassed,
+      message: "达到最大重试次数，使用最后一版并保留风格质检风险"
     });
   }
 
@@ -652,6 +743,7 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
   const fallbackChunkChars = Number(style.fallback_chunk_chars ?? 8000);
   const maxAttempts = Number(style.max_rewrite_attempts ?? 3);
   const contextTailChars = Number(style.context_tail_chars ?? 1200);
+  const allowForcedAcceptOnContinuityFailure = Boolean(style.allow_forced_accept_on_continuity_failure ?? false);
   const chapters = splitChapters(text, fallbackChunkChars);
 
   const run = resumeRunDir
@@ -667,7 +759,12 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
 
   initManifestChapters(run.manifest, chapters);
   run.manifest.totalChapters = chapters.length;
-  run.manifest.options = { fallbackChunkChars, maxAttempts, contextTailChars };
+  run.manifest.options = {
+    fallbackChunkChars,
+    maxAttempts,
+    contextTailChars,
+    allowForcedAcceptOnContinuityFailure
+  };
   await saveManifest(run);
 
   await logger.event("info", resumeRunDir ? "run_resume" : "run_start", {
@@ -703,6 +800,7 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
       state,
       maxAttempts,
       contextTailChars,
+      allowForcedAcceptOnContinuityFailure,
       logger
     );
   }
