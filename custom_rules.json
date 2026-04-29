@@ -1,0 +1,51 @@
+{
+  "forbidden_terms": [
+    "未成年人",
+    "儿童",
+    "强迫",
+    "迷奸",
+    "乱伦",
+    "兽交"
+  ],
+  "forbidden_metaphor_words": [
+    "像",
+    "如",
+    "仿佛",
+    "似",
+    "恍若"
+  ],
+  "forbidden_elegant_words": [
+    "花唇",
+    "蜜壶",
+    "玉门",
+    "阳物",
+    "玉茎"
+  ],
+  "global_style": {
+    "sensual_tension_ratio_target": 0.25,
+    "transition_max_sentences": 3,
+    "max_rewrite_attempts": 3,
+    "max_chapter_chars": 12000,
+    "fallback_chunk_chars": 8000,
+    "context_tail_chars": 1200
+  },
+  "character_specific_notes": {
+    "示例角色名": {
+      "developer_notes": "后期可在此添加角色背景、语言习惯、关系边界、禁忌话题等备注，系统会自动读取并作为增强依据。"
+    }
+  },
+  "advanced_directives": {
+    "tension_principles": [
+      "通过克制、沉默、视线、距离变化和身份压力制造张力，避免露骨器官描写。",
+      "权力反转瞬间应服务于人物关系和心理变化，不美化胁迫或伤害。",
+      "所有亲密关系必须默认成年、自愿、可撤回同意，并避免违法或非自愿内容。",
+      "忠实基调：严格遵循场景基调分析结果，温柔不强行黑暗，危险感不替代人物动机。"
+    ],
+    "role_archetype_directives": {
+      "师长": "核心在于距离感与责任边界。强调克制、尊重和后果意识，不写越界胁迫。",
+      "权威者": "核心在于身份压力与自我失控的边缘。用语言、姿态和场面调度表现关系张力。",
+      "清冷角色": "核心在于外在冷静与内在动摇的反差。用细微表情和选择变化表现情绪。",
+      "放纵角色": "核心在于外在轻佻与内在需求的落差。避免物化，用主动性和复杂动机支撑人物。"
+    }
+  }
+}

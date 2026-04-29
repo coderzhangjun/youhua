@@ -1,0 +1,21 @@
+{
+  "core_principle": "成人向文学改写项目。目标是提升叙事张力、人物复杂度、情绪推进和语言质感，同时避免露骨色情、非自愿、违法或剥削性内容。",
+  "tension_description_ratio": 0.25,
+  "safety_policy": {
+    "adult_only": "所有角色必须是成年人；若原文角色年龄不明，应默认不生成亲密内容。",
+    "consent_required": "亲密互动必须建立在清晰、自愿、可撤回的同意之上。",
+    "fade_to_black": "涉及性爱行为时采用非露骨、非器官化、非动作分解的淡出式处理。",
+    "disallowed_content": "不得生成未成年人、乱伦、强迫、迷奸、兽交、性暴力美化或其他违法剥削性内容。"
+  },
+  "description_rule": {
+    "intimacy": "使用克制、含蓄、心理化的语言描述亲密张力，重点放在人物选择、情绪变化和关系后果。",
+    "conflict": "冲突必须服务于人物弧光，不能将伤害或胁迫包装成浪漫。",
+    "forbidden": "严禁露骨器官词、违法性内容、非自愿性内容和用户自定义禁用词。"
+  },
+  "style_requirements": {
+    "no_metaphor_overuse": "避免堆砌比喻和套话；若 custom_rules.json 禁用特定词，应严格避开。",
+    "continuous_shot": "按时间顺序和视觉逻辑推进，减少概括性跳跃。",
+    "psychological_embed": "心理活动紧贴行动和身体反应之后，不单独堆叠大段独白。",
+    "plot_serves_character": "剧情过渡精简，但必须维持主线、人物动机和原著基调。"
+  }
+}

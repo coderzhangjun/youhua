@@ -1,0 +1,14 @@
+{
+  "name": "novel-rewrite-studio",
+  "version": "1.0.0",
+  "description": "DeepSeek-powered long-form Chinese novel rewrite pipeline with configurable rules and QA loop.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build-kb": "node build_knowledge_base.js",
+    "rewrite": "node rewrite_pipeline.js"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}
