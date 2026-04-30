@@ -9,6 +9,7 @@
     "rewrite": "node rewrite_pipeline.js"
   },
   "dependencies": {
+    "iconv-lite": "^0.7.2",
     "openai": "^4.0.0"
   }
 }
