@@ -1,0 +1,23 @@
+{
+  "passed": false,
+  "severity": "major",
+  "issues": [
+    {
+      "location": "改写稿中提及烟儿全名",
+      "type": "character_name_change",
+      "original": "芳名枊如烟",
+      "rewritten": "芳名柳如烟",
+      "detail": "改写稿擅自将烟儿的名字从“枊如烟”改为“柳如烟”，未经授权修改人物名称，可能造成前后混乱。"
+    }
+  ],
+  "revision_advice": "将“柳如烟”改回“枊如烟”，以保持与原作设定一致。",
+  "facts_delta": [
+    {
+      "field": "character_name",
+      "original_value": "枊如烟",
+      "rewritten_value": "柳如烟",
+      "action": "revert"
+    }
+  ],
+  "risk_summary": "人名改动可能影响后续人物指代，若不修正，会导致整个系列中该角色姓名矛盾，需要立即回退。"
+}
