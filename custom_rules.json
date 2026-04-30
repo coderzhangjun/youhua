@@ -1,31 +1,15 @@
 {
-  "forbidden_metaphor_words": [
-    "像",
-    "如",
-    "仿佛",
-    "似",
-    "恍若"
-  ],
-  "forbidden_elegant_words": [
-    "花唇",
-    "蜜壶",
-    "玉门",
-    "阳物",
-    "玉茎"
-  ],
+  "forbidden_metaphor_words": ["像", "如", "仿佛", "似", "恍若"],
+  "forbidden_elegant_words": ["花唇", "蜜壶", "玉门", "阳物", "玉茎"],
   "global_style": {
     "sex_description_ratio_target": 0.4,
     "transition_max_sentences": 3,
     "non_erotic_transition_max_sentences": 3,
     "environment_description_policy": "环境描写除非承载色情张力、人物关系变化、禁忌提醒物或后续硬伏笔，否则压缩到一句以内。",
     "plot_compression_policy": "所有无关色情剧情核心的过渡、背景、路人对白和设定说明必须精简；只保留服务于色情张力、人物关系变化、后续伏笔、世界观硬规则的内容。",
-    "tone_fidelity_policy": "不扭曲原著基调，让 Agent 0 自主判断场景类型；纯爱不加背德，背德不洗成纯爱，支配/臣服不改成平等调情。",
+    "tone_fidelity_policy": "不扭曲原著基调，让 Agent 0 自主判断场景类型",
     "allow_forced_accept_on_continuity_failure": false,
-    "blocking_continuity_severities": [
-      "critical",
-      "high",
-      "blocker"
-    ],
+    "blocking_continuity_severities": ["critical", "high", "blocker"],
     "max_rewrite_attempts": 3,
     "max_chapter_chars": 12000,
     "fallback_chunk_chars": 8000,

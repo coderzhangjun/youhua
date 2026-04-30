@@ -137,12 +137,43 @@ function shouldEnforceSexRatio(mood) {
   return true;
 }
 
-function buildRevisionFeedback({ styleQa, continuityQa, mood, chapter }) {
-  const blocking = isBlockingContinuityQa(continuityQa, ["critical", "high", "blocker"]);
+function auditSeverity(audit) {
+  const rootSeverity = normalizeSeverity(audit?.severity);
+  const issueSeverities = normalizeIssueList(audit?.missing_required_items)
+    .map((issue) => normalizeSeverity(issue?.severity ?? issue?.level ?? issue?.risk))
+    .filter(Boolean);
+  return [rootSeverity, ...issueSeverities].filter(Boolean);
+}
+
+function isBlockingCoverageAudit(audit, blockingSeverities) {
+  if (!audit || Boolean(audit?.passed)) return false;
+  const blockingSet = new Set(blockingSeverities.map((item) => normalizeSeverity(item)));
+  const severities = auditSeverity(audit);
+  if (severities.length === 0) return true;
+  return severities.some((severity) => blockingSet.has(severity));
+}
+
+function normalizeDecision(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function shouldStopForRepairPlan(plan) {
+  const decision = normalizeDecision(plan?.decision);
+  return decision === "stop_for_system_bug" || decision === "stop_unrecoverable";
+}
+
+function shouldAcceptWithRisk(plan) {
+  return normalizeDecision(plan?.decision) === "accept_with_risk";
+}
+
+function buildRevisionFeedback({ styleQa, continuityQa, coverageAudit, repairPlan, mood, chapter }) {
+  const continuityBlocking = isBlockingContinuityQa(continuityQa, ["critical", "high", "blocker"]);
+  const coverageBlocking = isBlockingCoverageAudit(coverageAudit, ["critical", "high", "blocker"]);
+  const blocking = continuityBlocking || coverageBlocking;
   return JSON.stringify({
     instruction: "上一轮未通过。请先修复下列问题，再继续保持原核心写作目标。",
     priority: blocking
-      ? "最高优先级：先修复高危连续性问题，禁止继续扩写会污染后文的错误事实。"
+      ? "最高优先级：先修复高危连续性/覆盖率问题，禁止继续扩写会污染后文的错误事实或删除硬伏笔。"
       : "优先修复质检问题，同时保持基调和剧情事实稳定。",
     original_boundary: {
       chapter_title: chapter.title,
@@ -162,6 +193,26 @@ function buildRevisionFeedback({ styleQa, continuityQa, mood, chapter }) {
       facts_delta: normalizeIssueList(continuityQa?.facts_delta),
       risk_summary: continuityQa?.risk_summary ?? null,
       revision_advice: continuityQa?.revision_advice ?? null
+    },
+    coverage_audit: {
+      passed: Boolean(coverageAudit?.passed),
+      severity: auditSeverity(coverageAudit),
+      blocking: coverageBlocking,
+      coverage_ratio: coverageAudit?.coverage_ratio ?? null,
+      missing_required_items: normalizeIssueList(coverageAudit?.missing_required_items),
+      unapproved_additions: normalizeIssueList(coverageAudit?.unapproved_additions),
+      root_cause: coverageAudit?.root_cause ?? null,
+      next_revision_orders: normalizeIssueList(coverageAudit?.next_revision_orders)
+    },
+    repair_plan: {
+      decision: repairPlan?.decision ?? null,
+      root_cause_type: normalizeIssueList(repairPlan?.root_cause_type),
+      blocking: Boolean(repairPlan?.blocking),
+      evidence: normalizeIssueList(repairPlan?.evidence),
+      repair_orders: normalizeIssueList(repairPlan?.repair_orders),
+      context_requests: normalizeIssueList(repairPlan?.context_requests),
+      acceptance_rationale: repairPlan?.acceptance_rationale ?? null,
+      system_bug_report: repairPlan?.system_bug_report ?? null
     }
   });
 }
@@ -379,7 +430,86 @@ async function analyzeMood(client, chapter, knowledgeBase, previousSummary, fact
   });
 }
 
-async function agentTensionDirector(client, chapter, mood, projectConfig, customRules, previousFeedback, logger, meta) {
+async function extractSourceObligations(client, chapter, mood, knowledgeBase, previousSummary, logger, meta) {
+  const systemPrompt =
+    "你是原文事实统筹。请提取本章改写必须覆盖的硬事实、硬伏笔和可压缩内容。" +
+    "不要创作正文，不要输出思维链。输出必须是 JSON 对象，包含 required_items、compressible_items、forbidden_changes、coverage_notes 字段。";
+  const userPrompt =
+    "请从原文章节中提取覆盖清单。\n" +
+    "required_items: 后文会依赖、不能删除、不能改名、不能提前/延后的事实或事件。每项包含 id、description、reason、severity，severity 使用 medium、major、high、critical。\n" +
+    "compressible_items: 可以精简但不可与 required_items 冲突的背景或过渡。\n" +
+    "forbidden_changes: 明确禁止主笔改动的关系、身份、时间线、章节标题、制度规则、伏笔。\n" +
+    "coverage_notes: 给主笔的简短覆盖提醒。\n\n" +
+    `知识库摘要：${JSON.stringify(knowledgeBase).slice(0, 6000)}\n\n` +
+    `前文摘要：${previousSummary}\n\n` +
+    `基调分析：${JSON.stringify(mood)}\n\n` +
+    `章节标题：${chapter.title}\n\n原文：\n${chapter.content}`;
+
+  return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
+    jsonMode: true,
+    temperature: 0.1,
+    logger,
+    stage: "source_obligations",
+    ...meta
+  });
+}
+
+async function auditRewriteCoverage(client, chapter, rewritten, mood, sourceObligations, directorNotes, logger, meta) {
+  const systemPrompt =
+    "你是改写覆盖率审计员。请审计改写稿是否覆盖原文硬事实清单，并输出可审计摘要，不要输出隐藏思维链。" +
+    "输出必须是 JSON 对象，包含 passed、severity、coverage_ratio、covered_required_items、missing_required_items、compressed_items、unapproved_additions、root_cause、next_revision_orders 字段。";
+  const userPrompt =
+    "请根据原文硬事实清单审计改写稿。\n" +
+    "规则：required_items 中 high/critical 项不得删除、改名、错置或只以模糊暗示代替；可压缩但必须保留事实功能。\n" +
+    "如果缺失 high/critical 项，passed=false，severity 至少 high。\n" +
+    "root_cause 写可审计的失败原因摘要，例如“主笔只覆盖赏月场景，删除身世伏笔”。不要写模型内心推理过程。\n" +
+    "next_revision_orders 必须是下一轮可直接执行的硬命令。\n\n" +
+    `基调分析：${JSON.stringify(mood)}\n\n` +
+    `原文硬事实清单：${JSON.stringify(sourceObligations)}\n\n` +
+    `导演指令：${JSON.stringify(directorNotes)}\n\n` +
+    `章节标题：${chapter.title}\n\n原文：\n${chapter.content.slice(0, 12000)}\n\n改写稿：\n${rewritten}`;
+
+  return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
+    jsonMode: true,
+    temperature: 0.1,
+    logger,
+    stage: "coverage_audit",
+    ...meta
+  });
+}
+
+async function agentRepairPlanner(client, chapter, mood, sourceObligations, styleQa, continuityQa, coverageAudit, previousFeedback, logger, meta) {
+  const systemPrompt =
+    "你是 Agent E 根因分析与修复调度员。你不写正文，只判断失败源头并决定下一步。" +
+    "不要输出隐藏思维链，只输出可审计摘要。输出必须是 JSON 对象，包含 decision、root_cause_type、blocking、evidence、repair_orders、context_requests、system_bug_report、acceptance_rationale 字段。";
+  const userPrompt =
+    "请根据本轮质检结果判断失败根因和下一步动作。\n\n" +
+    "decision 只能取以下值之一：\n" +
+    "- retry_rewrite：模型改写跑偏、覆盖缺失、风格问题或连续性问题仍可通过下一轮重写修复。\n" +
+    "- refresh_context_then_retry：上下文不足或读错原文，需要下一轮更强调原文硬事实、前文摘要、事实账本后重写。\n" +
+    "- accept_with_risk：仅剩低/中风险或可接受的风格瑕疵，不会污染后文，可带风险采用。\n" +
+    "- stop_for_system_bug：发现代码/规则逻辑错误，例如互相矛盾的硬规则、本地校验错误、错误采用失败稿，继续跑会浪费 API。\n" +
+    "- stop_unrecoverable：多轮后仍无法满足高危连续性或覆盖率要求，继续重试价值很低。\n\n" +
+    "root_cause_type 可包含 prompt_drift、coverage_loss、continuity_conflict、style_rule_conflict、source_misread、system_bug、context_insufficient。\n" +
+    "repair_orders 必须是下一轮可直接执行的硬命令。若是 system_bug，system_bug_report 必须说明应修改哪类代码逻辑。\n\n" +
+    `章节标题：${chapter.title}\n\n` +
+    `基调分析：${JSON.stringify(mood)}\n\n` +
+    `原文硬事实清单：${JSON.stringify(sourceObligations)}\n\n` +
+    `上一轮反馈：${previousFeedback || "无"}\n\n` +
+    `风格质检：${JSON.stringify(styleQa)}\n\n` +
+    `连续性质检：${JSON.stringify(continuityQa)}\n\n` +
+    `覆盖率审计：${JSON.stringify(coverageAudit)}`;
+
+  return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
+    jsonMode: true,
+    temperature: 0.1,
+    logger,
+    stage: "repair_planner",
+    ...meta
+  });
+}
+
+async function agentTensionDirector(client, chapter, mood, sourceObligations, projectConfig, customRules, previousFeedback, logger, meta) {
   const systemPrompt =
     "你是 Agent A 张力导演。请生成详细的色情分镜增强指令。输出必须是 JSON 对象，" +
     "包含 scene_beats、style_notes、must_keep、must_avoid、revision_notes 字段。";
@@ -394,8 +524,10 @@ async function agentTensionDirector(client, chapter, mood, projectConfig, custom
     "7）严禁引入与 Agent 0 判断出的 genre、emotional_core、character_dynamic 冲突的元素\n\n" +
     `配置：${compactConfig(projectConfig, customRules)}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n` +
+    `原文硬事实清单：${JSON.stringify(sourceObligations)}\n\n` +
     `上一轮质检反馈：${previousFeedback || "无"}\n\n` +
-    "如果上一轮反馈包含 blocking=true 或高危连续性问题，必须把修复该问题作为本轮分镜第一优先级，明确告诉主笔如何避免重复错误。\n\n" +
+    "必须把原文硬事实清单中的 required_items 合并进 must_keep。压缩可以发生，但不得删除 high/critical 硬伏笔。\n" +
+    "如果上一轮反馈包含 blocking=true 或高危连续性/覆盖率问题，必须把修复该问题作为本轮分镜第一优先级，明确告诉主笔如何避免重复错误。\n\n" +
     `章节：${chapter.title}\n${chapter.content}`;
 
   return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
@@ -407,7 +539,7 @@ async function agentTensionDirector(client, chapter, mood, projectConfig, custom
   });
 }
 
-async function agentWriter(client, chapter, mood, directorNotes, knowledgeBase, projectConfig, customRules, previousSummary, previousTail, factsLedger, logger, meta) {
+async function agentWriter(client, chapter, mood, directorNotes, sourceObligations, knowledgeBase, projectConfig, customRules, previousSummary, previousTail, factsLedger, logger, meta) {
   const systemPrompt =
     "你是专业成人色情小说主笔人。严格遵循配置中的用词规则和比例要求。" +
     "你必须写出连续、直白、无比喻的性爱场面，色情描写占全文 40% 以上。" +
@@ -421,6 +553,7 @@ async function agentWriter(client, chapter, mood, directorNotes, knowledgeBase, 
     `前文摘要：${previousSummary}\n\n前章结尾：${previousTail}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n` +
     `导演指令：${JSON.stringify(directorNotes)}\n\n` +
+    `原文硬事实清单（必须逐项覆盖，允许精简但不得删除 high/critical 项）：${JSON.stringify(sourceObligations)}\n\n` +
     `原文章节：${chapter.title}\n${chapter.content}\n\n` +
     `连续性护栏（仅用于避免前后文矛盾，不改变上述写作目标）：不得提前、删除或反转重大剧情事实；参考事实账本：${JSON.stringify(factsLedger).slice(0, 6000)}`;
 
@@ -652,6 +785,8 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
   const meta = { chapterIndex, chapterTitle: chapter.title };
   const mood = await analyzeMood(client, chapter, knowledgeBase, state.summaryState.previousSummary, state.factsLedger, logger, meta);
   await writeJson(path.join(dir, "mood.json"), mood);
+  const sourceObligations = await extractSourceObligations(client, chapter, mood, knowledgeBase, state.summaryState.previousSummary, logger, meta);
+  await writeJson(path.join(dir, "source_obligations.json"), sourceObligations);
 
   let feedback = "";
   let accepted = "";
@@ -659,6 +794,8 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
   let lastDraft = "";
   let lastStyleQa = null;
   let lastContinuityQa = null;
+  let lastCoverageAudit = null;
+  let lastRepairPlan = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const attemptMeta = { ...meta, attempt };
@@ -667,7 +804,7 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
       message: `${attempt}/${maxAttempts}`
     });
 
-    const directorNotes = await agentTensionDirector(client, chapter, mood, projectConfig, customRules, feedback, logger, attemptMeta);
+    const directorNotes = await agentTensionDirector(client, chapter, mood, sourceObligations, projectConfig, customRules, feedback, logger, attemptMeta);
     await writeJson(path.join(dir, `attempt_${attempt}_director.json`), directorNotes);
 
     lastDraft = await agentWriter(
@@ -675,6 +812,7 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
       chapter,
       mood,
       directorNotes,
+      sourceObligations,
       knowledgeBase,
       projectConfig,
       customRules,
@@ -692,18 +830,61 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
     lastContinuityQa = await agentContinuityQa(client, lastDraft, chapter, mood, state.summaryState.previousSummary, state.factsLedger, logger, attemptMeta);
     await writeJson(path.join(dir, `attempt_${attempt}_continuity_qa.json`), lastContinuityQa);
 
-    const passed = Boolean(lastStyleQa.passed) && Boolean(lastContinuityQa.passed);
+    lastCoverageAudit = await auditRewriteCoverage(client, chapter, lastDraft, mood, sourceObligations, directorNotes, logger, attemptMeta);
+    await writeJson(path.join(dir, `attempt_${attempt}_rewrite_audit.json`), lastCoverageAudit);
+    await writeJson(path.join(dir, `attempt_${attempt}_source_coverage.json`), {
+      passed: Boolean(lastCoverageAudit.passed),
+      severity: lastCoverageAudit.severity ?? null,
+      coverage_ratio: lastCoverageAudit.coverage_ratio ?? null,
+      covered_required_items: normalizeIssueList(lastCoverageAudit.covered_required_items),
+      missing_required_items: normalizeIssueList(lastCoverageAudit.missing_required_items),
+      unapproved_additions: normalizeIssueList(lastCoverageAudit.unapproved_additions)
+    });
+    if (!lastCoverageAudit.passed) {
+      await writeJson(path.join(dir, `attempt_${attempt}_failure_root_cause.json`), {
+        root_cause: lastCoverageAudit.root_cause ?? null,
+        next_revision_orders: normalizeIssueList(lastCoverageAudit.next_revision_orders),
+        missing_required_items: normalizeIssueList(lastCoverageAudit.missing_required_items),
+        continuity_issues: normalizeIssueList(lastContinuityQa.issues),
+        style_issues: normalizeIssueList(lastStyleQa.issues)
+      });
+    }
+
+    const passed = Boolean(lastStyleQa.passed) && Boolean(lastContinuityQa.passed) && Boolean(lastCoverageAudit.passed);
+    if (!passed) {
+      lastRepairPlan = await agentRepairPlanner(
+        client,
+        chapter,
+        mood,
+        sourceObligations,
+        lastStyleQa,
+        lastContinuityQa,
+        lastCoverageAudit,
+        feedback,
+        logger,
+        attemptMeta
+      );
+      await writeJson(path.join(dir, `attempt_${attempt}_repair_plan.json`), lastRepairPlan);
+    } else {
+      lastRepairPlan = null;
+    }
+
     const styleIssueCount = normalizeIssueList(lastStyleQa.issues).length;
     const continuityIssueCount = normalizeIssueList(lastContinuityQa.issues).length;
+    const coverageMissingCount = normalizeIssueList(lastCoverageAudit.missing_required_items).length;
+    const repairDecision = lastRepairPlan?.decision ?? null;
     await logger.event(passed ? "info" : "warn", "attempt_result", {
       ...attemptMeta,
       passed,
       stylePassed: Boolean(lastStyleQa.passed),
       continuityPassed: Boolean(lastContinuityQa.passed),
+      coveragePassed: Boolean(lastCoverageAudit.passed),
       styleIssueCount,
       continuityIssueCount,
+      coverageMissingCount,
+      repairDecision,
       draftChars: lastDraft.length,
-      message: `style=${Boolean(lastStyleQa.passed)}(${styleIssueCount}), continuity=${Boolean(lastContinuityQa.passed)}(${continuityIssueCount}), draftChars=${lastDraft.length}`
+      message: `style=${Boolean(lastStyleQa.passed)}(${styleIssueCount}), continuity=${Boolean(lastContinuityQa.passed)}(${continuityIssueCount}), coverage=${Boolean(lastCoverageAudit.passed)}(${coverageMissingCount}), repair=${repairDecision || "none"}, draftChars=${lastDraft.length}`
     });
 
     chapterState.attempts = attempt;
@@ -713,13 +894,70 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
 
     if (passed) {
       accepted = lastDraft;
-      acceptedQa = { style: lastStyleQa, continuity: lastContinuityQa };
+      acceptedQa = { style: lastStyleQa, continuity: lastContinuityQa, coverage: lastCoverageAudit };
+      break;
+    }
+
+    if (shouldStopForRepairPlan(lastRepairPlan)) {
+      const failureQa = {
+        style: lastStyleQa,
+        continuity: lastContinuityQa,
+        coverage: lastCoverageAudit,
+        repair_plan: lastRepairPlan,
+        forced_accept_blocked: true
+      };
+      const failedQaPath = path.join(dir, "failed_qa.json");
+      await writeJson(failedQaPath, failureQa);
+
+      chapterState.status = "failed";
+      chapterState.finishedAt = nowIso();
+      chapterState.failedReason = normalizeDecision(lastRepairPlan.decision);
+      chapterState.qaPath = path.relative(run.runDir, failedQaPath).replaceAll("\\", "/");
+      chapterState.risks = {
+        style: normalizeIssueList(lastStyleQa?.issues),
+        continuity: normalizeIssueList(lastContinuityQa?.issues),
+        coverage: normalizeIssueList(lastCoverageAudit?.missing_required_items),
+        repair: normalizeIssueList(lastRepairPlan?.evidence)
+      };
+      await saveManifest(run, { status: "failed" });
+
+      await logger.event("error", "chapter_failed", {
+        chapterIndex,
+        chapterTitle: chapter.title,
+        repairDecision: lastRepairPlan.decision,
+        rootCauseType: normalizeIssueList(lastRepairPlan.root_cause_type),
+        message: "Agent E 判定为系统问题或不可恢复问题，已停止流水线；请查看 failed_qa.json 和 attempt_*_repair_plan.json"
+      });
+
+      throw new Error(`章节「${chapter.title}」被 Agent E 判定为 ${lastRepairPlan.decision}，已停止。`);
+    }
+
+    const blockingSeverities = customRules.global_style?.blocking_continuity_severities ?? ["critical", "high", "blocker"];
+    const retryableBlocking =
+      isBlockingContinuityQa(lastContinuityQa, blockingSeverities) ||
+      isBlockingCoverageAudit(lastCoverageAudit, blockingSeverities);
+    if (shouldAcceptWithRisk(lastRepairPlan) && !retryableBlocking) {
+      accepted = lastDraft;
+      acceptedQa = {
+        style: lastStyleQa,
+        continuity: lastContinuityQa,
+        coverage: lastCoverageAudit,
+        repair_plan: lastRepairPlan,
+        forced_accept: true
+      };
+      await logger.event("warn", "repair_accept_with_risk", {
+        ...attemptMeta,
+        repairDecision: lastRepairPlan.decision,
+        message: "Agent E 判定剩余问题可带风险采用"
+      });
       break;
     }
 
     feedback = buildRevisionFeedback({
       styleQa: lastStyleQa,
       continuityQa: lastContinuityQa,
+      coverageAudit: lastCoverageAudit,
+      repairPlan: lastRepairPlan,
       mood,
       chapter
     });
@@ -727,23 +965,34 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
 
   if (!accepted) {
     const continuityPassed = Boolean(lastContinuityQa?.passed);
+    const blockingSeverities = customRules.global_style?.blocking_continuity_severities ?? ["critical", "high", "blocker"];
     const blockingContinuity = isBlockingContinuityQa(
       lastContinuityQa,
-      customRules.global_style?.blocking_continuity_severities ?? ["critical", "high", "blocker"]
+      blockingSeverities
     );
-    if (blockingContinuity && !allowForcedAcceptOnContinuityFailure) {
-      const failureQa = { style: lastStyleQa, continuity: lastContinuityQa, forced_accept_blocked: true };
+    const blockingCoverage = isBlockingCoverageAudit(lastCoverageAudit, blockingSeverities);
+    if ((blockingContinuity || blockingCoverage) && !allowForcedAcceptOnContinuityFailure) {
+      const failureQa = {
+        style: lastStyleQa,
+        continuity: lastContinuityQa,
+        coverage: lastCoverageAudit,
+        repair_plan: lastRepairPlan,
+        forced_accept_blocked: true
+      };
       const failedQaPath = path.join(dir, "failed_qa.json");
       await writeJson(failedQaPath, failureQa);
 
       chapterState.status = "failed";
       chapterState.finishedAt = nowIso();
-      chapterState.failedReason = "continuity_qa_failed";
+      chapterState.failedReason = blockingContinuity ? "continuity_qa_failed" : "coverage_audit_failed";
       chapterState.continuitySeverity = continuitySeverity(lastContinuityQa);
+      chapterState.coverageSeverity = auditSeverity(lastCoverageAudit);
       chapterState.qaPath = path.relative(run.runDir, failedQaPath).replaceAll("\\", "/");
       chapterState.risks = {
         style: normalizeIssueList(lastStyleQa?.issues),
-        continuity: normalizeIssueList(lastContinuityQa?.issues)
+        continuity: normalizeIssueList(lastContinuityQa?.issues),
+        coverage: normalizeIssueList(lastCoverageAudit?.missing_required_items),
+        repair: normalizeIssueList(lastRepairPlan?.evidence)
       };
       await saveManifest(run, { status: "failed" });
 
@@ -752,21 +1001,27 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
         chapterTitle: chapter.title,
         stylePassed: Boolean(lastStyleQa?.passed),
         continuityPassed,
+        coveragePassed: Boolean(lastCoverageAudit?.passed),
         continuitySeverity: continuitySeverity(lastContinuityQa),
-        message: "连续性质检存在高危问题，已停止流水线；请查看 failed_qa.json 和各 attempt_*_continuity_qa.json"
+        coverageSeverity: auditSeverity(lastCoverageAudit),
+        repairDecision: lastRepairPlan?.decision ?? null,
+        message: "连续性或原文覆盖率存在高危问题，已停止流水线；请查看 failed_qa.json、attempt_*_continuity_qa.json、attempt_*_rewrite_audit.json"
       });
 
-      throw new Error(`章节「${chapter.title}」连续性质检存在高危问题，已停止以避免污染后文。`);
+      throw new Error(`章节「${chapter.title}」连续性或原文覆盖率存在高危问题，已停止以避免污染后文。`);
     }
 
     accepted = lastDraft;
-    acceptedQa = { style: lastStyleQa, continuity: lastContinuityQa, forced_accept: true };
+    acceptedQa = { style: lastStyleQa, continuity: lastContinuityQa, coverage: lastCoverageAudit, repair_plan: lastRepairPlan, forced_accept: true };
     await logger.event("warn", "forced_accept", {
       chapterIndex,
       chapterTitle: chapter.title,
       stylePassed: Boolean(lastStyleQa?.passed),
       continuityPassed,
+      coveragePassed: Boolean(lastCoverageAudit?.passed),
       continuitySeverity: continuitySeverity(lastContinuityQa),
+      coverageSeverity: auditSeverity(lastCoverageAudit),
+      repairDecision: lastRepairPlan?.decision ?? null,
       message: "达到最大重试次数，使用最后一版并保留非高危质检风险"
     });
   }
@@ -776,7 +1031,10 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
   await atomicWrite(acceptedPath, accepted);
   await writeJson(qaPath, acceptedQa);
 
-  const factsLedger = await updateFactsLedger(client, state.factsLedger, chapter.title, chapter.content, accepted, acceptedQa.continuity, logger, meta);
+  const factsLedger = await updateFactsLedger(client, state.factsLedger, chapter.title, chapter.content, accepted, {
+    continuity: acceptedQa.continuity,
+    coverage: acceptedQa.coverage
+  }, logger, meta);
   const previousSummary = await summarizeProgress(client, state.summaryState.previousSummary, chapter.title, accepted, logger, meta);
   const previousTail = accepted.slice(-contextTailChars);
 
@@ -793,7 +1051,9 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
   chapterState.forcedAccept = Boolean(acceptedQa.forced_accept);
   chapterState.risks = {
     style: normalizeIssueList(acceptedQa.style?.issues),
-    continuity: normalizeIssueList(acceptedQa.continuity?.issues)
+    continuity: normalizeIssueList(acceptedQa.continuity?.issues),
+    coverage: normalizeIssueList(acceptedQa.coverage?.missing_required_items),
+    repair: normalizeIssueList(acceptedQa.repair_plan?.evidence)
   };
   await saveManifest(run);
 
