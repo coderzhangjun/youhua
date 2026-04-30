@@ -131,10 +131,23 @@ function isBlockingContinuityQa(qa, blockingSeverities) {
 
 function shouldEnforceSexRatio(mood) {
   const genre = normalizeSeverity(mood?.genre);
+  const sceneContentType = normalizeSeverity(mood?.scene_content_type);
   const guardrails = JSON.stringify(mood?.tone_guardrails ?? "");
+  if (sceneContentType) return sceneContentType === "explicit_sex";
   if (genre === "none") return false;
+  if (genre === "pure_love" && (guardrails.includes("禁止加入任何性爱描写") || guardrails.includes("禁止性描写"))) return false;
   if (guardrails.includes("禁止加入任何性爱描写") || guardrails.includes("禁止性描写")) return false;
-  return true;
+  return false;
+}
+
+function maxOutputRatioForChapter(mood, customRules) {
+  const style = customRules.global_style ?? {};
+  const sceneContentType = normalizeSeverity(mood?.scene_content_type);
+  if (sceneContentType === "explicit_sex") return null;
+  if (sceneContentType === "plot_setup" || sceneContentType === "action_or_worldbuilding") {
+    return Number(style.plot_setup_max_output_ratio ?? 0.45);
+  }
+  return Number(style.non_erotic_max_output_ratio ?? 0.5);
 }
 
 function auditSeverity(audit) {
@@ -164,6 +177,26 @@ function shouldStopForRepairPlan(plan) {
 
 function shouldAcceptWithRisk(plan) {
   return normalizeDecision(plan?.decision) === "accept_with_risk";
+}
+
+function issueHasType(issue, type) {
+  return typeof issue === "object" && issue !== null && issue.type === type;
+}
+
+function hasStyleQaIssue(styleQa, type) {
+  return normalizeIssueList(styleQa?.issues).some((issue) => issueHasType(issue, type));
+}
+
+function isLocalStyleFixCandidate(styleQa, continuityQa, coverageAudit) {
+  if (Boolean(styleQa?.passed)) return false;
+  if (!Boolean(continuityQa?.passed) || !Boolean(coverageAudit?.passed)) return false;
+  const issues = normalizeIssueList(styleQa?.issues);
+  return !issues.some((issue) => issueHasType(issue, "sex_ratio_too_low"));
+}
+
+function shouldBlockForcedAcceptForStyle(styleQa) {
+  if (Boolean(styleQa?.passed)) return false;
+  return hasStyleQaIssue(styleQa, "forbidden_terms") || hasStyleQaIssue(styleQa, "non_erotic_too_long");
 }
 
 function buildRevisionFeedback({ styleQa, continuityQa, coverageAudit, repairPlan, mood, chapter }) {
@@ -409,11 +442,12 @@ async function callLlm(client, messages, {
 async function analyzeMood(client, chapter, knowledgeBase, previousSummary, factsLedger, logger, meta) {
   const systemPrompt =
     "你是 Agent 0 基调识别。请分析性爱场景的类型和基调，把判断权建立在原文自身的文学理解上，不要套用固定套路。" +
-    "输出必须是 JSON 对象，包含 genre、emotional_core、character_dynamic、mood、conflict、character_states、continuity_risks、rewrite_focus、tone_guardrails、non_erotic_compression 字段。" +
+    "输出必须是 JSON 对象，包含 genre、scene_content_type、emotional_core、character_dynamic、mood、conflict、character_states、continuity_risks、rewrite_focus、tone_guardrails、non_erotic_compression 字段。" +
     "保持客观，可以识别性爱场景的类型和功能，但不要生成具体描写。";
   const userPrompt =
     "请用 JSON 分析下面章节的基调、性爱类型、角色状态和改写重点。\n" +
     "genre 可取 pure_love、ntr、dom_sub、incest、corruption、seduction、mixed、none 等；不要为了刺激强行改判。\n" +
+    "scene_content_type 必须取 explicit_sex、erotic_tension、pure_love_no_sex、plot_setup、action_or_worldbuilding 之一。只有 explicit_sex 才强制色情描写占比；其他类型必须压缩非核心剧情但不得硬加性内容。\n" +
     "emotional_core 写出这段场景真正的核心爽点；character_dynamic 写出角色权力关系。\n" +
     "tone_guardrails 必须说明哪些元素严禁加入，例如 pure_love 禁止强行加入背叛/丈夫/绿帽语义。\n" +
     "non_erotic_compression 必须列出本章哪些背景、环境、路人对白或设定可压缩，以及哪些硬伏笔必须保留。\n\n" +
@@ -542,7 +576,8 @@ async function agentTensionDirector(client, chapter, mood, sourceObligations, pr
 async function agentWriter(client, chapter, mood, directorNotes, sourceObligations, knowledgeBase, projectConfig, customRules, previousSummary, previousTail, factsLedger, logger, meta) {
   const systemPrompt =
     "你是专业成人色情小说主笔人。严格遵循配置中的用词规则和比例要求。" +
-    "你必须写出连续、直白、无比喻的性爱场面，色情描写占全文 40% 以上。" +
+    "只有 Agent 0 判定为 explicit_sex 的章节，才必须写出连续、直白、无比喻的性爱场面并让色情描写占全文 40% 以上。" +
+    "非 explicit_sex 章节必须极度浓缩，只保留硬伏笔、人物关系变化、禁忌提醒物和后续成人剧情所需信息，不得为了占比硬加性内容。" +
     "所有活动围绕色情剧情核心展开，所有剧情过渡精简优化，环境描写除非必不可少，不然仅服务于色情剧情。" +
     "写出放荡、羞耻、沉沦的心理反应。" +
     "必须忠实 Agent 0 的基调诊断：纯爱只强化甜蜜占有和亲密张力，背德只强化罪恶与沉迷撕裂，支配臣服只强化权力关系，不得跨类型硬套刺激元素。";
@@ -566,10 +601,44 @@ async function agentWriter(client, chapter, mood, directorNotes, sourceObligatio
   });
 }
 
+function findForbiddenMetaphorHits(text, terms) {
+  const hits = new Set();
+  for (const term of terms) {
+    if (!term) continue;
+    if (term.length > 1) {
+      if (text.includes(term)) hits.add(term);
+      continue;
+    }
+
+    if (term === "像") {
+      const pattern = /像[^，。！？；\n]{1,24}(一样|一般|似的|那样|般)/g;
+      if (pattern.test(text)) hits.add(term);
+      continue;
+    }
+
+    if (term === "如") {
+      const pattern = /(如同|犹如|宛如|恰如|一如|如[^，。！？；\n]{1,12}(般|水|墨|玉|雪|火|潮|丝|梦))/g;
+      if (pattern.test(text)) hits.add(term);
+      continue;
+    }
+
+    if (term === "似") {
+      const pattern = /(好似|恰似|酷似|似[^，。！？；\n]{1,12}(般|水|火|玉|雪|梦))/g;
+      if (pattern.test(text)) hits.add(term);
+      continue;
+    }
+
+    if (text.includes(term)) hits.add(term);
+  }
+  return [...hits].sort();
+}
+
 function localForbiddenScan(text, customRules) {
-  const keys = ["forbidden_metaphor_words", "forbidden_elegant_words"];
-  const terms = keys.flatMap((key) => (Array.isArray(customRules[key]) ? customRules[key] : []));
-  return [...new Set(terms.filter((term) => term && text.includes(term)))].sort();
+  const metaphorTerms = Array.isArray(customRules.forbidden_metaphor_words) ? customRules.forbidden_metaphor_words : [];
+  const elegantTerms = Array.isArray(customRules.forbidden_elegant_words) ? customRules.forbidden_elegant_words : [];
+  const metaphorHits = findForbiddenMetaphorHits(text, metaphorTerms);
+  const elegantHits = elegantTerms.filter((term) => term && text.includes(term));
+  return [...new Set([...metaphorHits, ...elegantHits])].sort();
 }
 
 function estimateSexRatio(text) {
@@ -584,6 +653,8 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
   const forbiddenHits = localForbiddenScan(rewritten, customRules);
   const ratio = estimateSexRatio(rewritten);
   const enforceSexRatio = shouldEnforceSexRatio(mood);
+  const maxOutputRatio = maxOutputRatioForChapter(mood, customRules);
+  const outputRatio = chapter.content.length > 0 ? Number((rewritten.length / chapter.content.length).toFixed(3)) : 0;
   const systemPrompt =
     "你是 Agent C 质检打磨师。请检查禁用比喻词命中、动作连续性、用词合规、" +
     "色情占比、非色情剧情精简度、基调忠实度和语言质量。" +
@@ -595,11 +666,14 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
     "3）动作连续性：是否从挑逗直接跳到抽插，缺少中间步骤\n" +
     "4）色情占比：仅当 Agent 0 判定本章存在性爱/色情场景且未禁止性描写时，判断色情描写占比是否达到 35% 以上；若 genre=none 或 tone_guardrails 禁止性描写，则不得因色情占比不足判失败\n" +
     "5）非色情剧情是否冗余：背景、环境、路人对白、设定说明若不服务色情张力、人物关系、禁忌提醒物或后续硬伏笔，必须要求删减\n" +
-    "6）基调是否被扭曲：不得把 pure_love 强行改成 ntr，也不得把背德戏洗成纯爱\n\n" +
+    "6）基调是否被扭曲：不得把 pure_love 强行改成 ntr，也不得把背德戏洗成纯爱\n" +
+    "7）长度策略：非 explicit_sex 章节必须明显浓缩，只保留硬伏笔和直接服务成人剧情核心的内容\n\n" +
     `配置：${compactConfig(projectConfig, customRules)}\n\n` +
     `本地禁用词命中：${JSON.stringify(forbiddenHits)}\n` +
     `性描写句占比估算：${ratio}\n` +
-    `本章是否强制检查色情占比：${enforceSexRatio}\n\n` +
+    `本章是否强制检查色情占比：${enforceSexRatio}\n` +
+    `输出/原文字数比例：${outputRatio}\n` +
+    `本章最大建议比例：${maxOutputRatio ?? "explicit_sex 不限制"}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n原文：${chapter.content.slice(0, 6000)}\n\n改写稿：${rewritten}`;
 
   const result = await callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
@@ -619,7 +693,43 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
     result.passed = false;
     result.issues.push({ type: "sex_ratio_too_low", ratio, threshold: 0.35 });
   }
+  if (maxOutputRatio !== null && outputRatio > maxOutputRatio) {
+    result.passed = false;
+    result.issues.push({
+      type: "non_erotic_too_long",
+      outputRatio,
+      threshold: maxOutputRatio,
+      advice: "非 explicit_sex 章节仍过长，请继续压缩背景、环境、路人对白和设定说明，只保留硬伏笔与成人剧情核心所需信息。"
+    });
+  }
   return result;
+}
+
+async function agentStyleFixer(client, rewritten, chapter, mood, sourceObligations, styleQa, customRules, logger, meta) {
+  const systemPrompt =
+    "你是 Agent F 局部风格修补师。你只做局部文字修补和压缩，不重写剧情。" +
+    "必须保留原文硬事实清单，不得新增事件、删除硬伏笔、改变人物关系或时间线。只输出修补后的完整正文，不输出解释。";
+  const userPrompt =
+    "请修补下面改写稿中的风格问题。\n" +
+    "任务范围：\n" +
+    "1）删除或替换禁用比喻结构和禁用雅称。\n" +
+    "2）压缩不直接服务成人剧情核心、人物关系、禁忌提醒物或后续硬伏笔的非核心文字。\n" +
+    "3）保持章节标题、人物关系、事件顺序、硬事实清单不变。\n" +
+    "4）不得为了修风格而新增成人场景；只有原稿已有成人场景时，才可在同一场景内补足连贯性。\n\n" +
+    `配置：${compactConfig({}, customRules)}\n\n` +
+    `基调分析：${JSON.stringify(mood)}\n\n` +
+    `原文硬事实清单：${JSON.stringify(sourceObligations)}\n\n` +
+    `风格质检问题：${JSON.stringify(styleQa)}\n\n` +
+    `章节标题：${chapter.title}\n\n` +
+    `待修补正文：\n${rewritten}`;
+
+  return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
+    jsonMode: false,
+    temperature: 0.2,
+    logger,
+    stage: "style_fix",
+    ...meta
+  });
 }
 
 async function agentContinuityQa(client, rewritten, chapter, mood, previousSummary, factsLedger, logger, meta) {
@@ -768,7 +878,7 @@ async function rebuildAcceptedOutput(run) {
   return accepted.join("\n\n");
 }
 
-async function processChapter(client, run, chapter, chapterIndex, total, projectConfig, customRules, knowledgeBase, state, maxAttempts, contextTailChars, allowForcedAcceptOnContinuityFailure, logger) {
+async function processChapter(client, run, chapter, chapterIndex, total, projectConfig, customRules, knowledgeBase, state, maxAttempts, contextTailChars, allowForcedAcceptOnContinuityFailure, styleFixAttempts, logger) {
   const chapterState = run.manifest.chapters[chapterIndex];
   const dir = path.join(run.chaptersDir, chapterDirName(chapterIndex, chapter.title));
   await ensureDir(dir);
@@ -848,6 +958,55 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
         continuity_issues: normalizeIssueList(lastContinuityQa.issues),
         style_issues: normalizeIssueList(lastStyleQa.issues)
       });
+    }
+
+    if (isLocalStyleFixCandidate(lastStyleQa, lastContinuityQa, lastCoverageAudit)) {
+      for (let fixAttempt = 1; fixAttempt <= styleFixAttempts; fixAttempt += 1) {
+        const fixMeta = { ...attemptMeta, attempt: `${attempt}.${fixAttempt}` };
+        await logger.event("info", "style_fix_start", {
+          ...fixMeta,
+          message: `局部风格修补 ${fixAttempt}/${styleFixAttempts}`
+        });
+
+        const fixedDraft = await agentStyleFixer(
+          client,
+          lastDraft,
+          chapter,
+          mood,
+          sourceObligations,
+          lastStyleQa,
+          customRules,
+          logger,
+          fixMeta
+        );
+        await atomicWrite(path.join(dir, `attempt_${attempt}_style_fix_${fixAttempt}.txt`), fixedDraft);
+
+        const fixedStyleQa = await agentQa(client, fixedDraft, chapter, mood, projectConfig, customRules, logger, fixMeta);
+        await writeJson(path.join(dir, `attempt_${attempt}_style_fix_${fixAttempt}_style_qa.json`), fixedStyleQa);
+
+        const fixedContinuityQa = await agentContinuityQa(client, fixedDraft, chapter, mood, state.summaryState.previousSummary, state.factsLedger, logger, fixMeta);
+        await writeJson(path.join(dir, `attempt_${attempt}_style_fix_${fixAttempt}_continuity_qa.json`), fixedContinuityQa);
+
+        const fixedCoverageAudit = await auditRewriteCoverage(client, chapter, fixedDraft, mood, sourceObligations, directorNotes, logger, fixMeta);
+        await writeJson(path.join(dir, `attempt_${attempt}_style_fix_${fixAttempt}_rewrite_audit.json`), fixedCoverageAudit);
+
+        const fixedPassed = Boolean(fixedStyleQa.passed) && Boolean(fixedContinuityQa.passed) && Boolean(fixedCoverageAudit.passed);
+        await logger.event(fixedPassed ? "info" : "warn", "style_fix_result", {
+          ...fixMeta,
+          passed: fixedPassed,
+          stylePassed: Boolean(fixedStyleQa.passed),
+          continuityPassed: Boolean(fixedContinuityQa.passed),
+          coveragePassed: Boolean(fixedCoverageAudit.passed),
+          message: `style=${Boolean(fixedStyleQa.passed)}, continuity=${Boolean(fixedContinuityQa.passed)}, coverage=${Boolean(fixedCoverageAudit.passed)}`
+        });
+
+        lastDraft = fixedDraft;
+        lastStyleQa = fixedStyleQa;
+        lastContinuityQa = fixedContinuityQa;
+        lastCoverageAudit = fixedCoverageAudit;
+
+        if (fixedPassed || !isLocalStyleFixCandidate(lastStyleQa, lastContinuityQa, lastCoverageAudit)) break;
+      }
     }
 
     const passed = Boolean(lastStyleQa.passed) && Boolean(lastContinuityQa.passed) && Boolean(lastCoverageAudit.passed);
@@ -971,7 +1130,8 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
       blockingSeverities
     );
     const blockingCoverage = isBlockingCoverageAudit(lastCoverageAudit, blockingSeverities);
-    if ((blockingContinuity || blockingCoverage) && !allowForcedAcceptOnContinuityFailure) {
+    const blockingStyle = shouldBlockForcedAcceptForStyle(lastStyleQa);
+    if (((blockingContinuity || blockingCoverage) && !allowForcedAcceptOnContinuityFailure) || blockingStyle) {
       const failureQa = {
         style: lastStyleQa,
         continuity: lastContinuityQa,
@@ -984,7 +1144,7 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
 
       chapterState.status = "failed";
       chapterState.finishedAt = nowIso();
-      chapterState.failedReason = blockingContinuity ? "continuity_qa_failed" : "coverage_audit_failed";
+      chapterState.failedReason = blockingStyle ? "style_fix_failed" : blockingContinuity ? "continuity_qa_failed" : "coverage_audit_failed";
       chapterState.continuitySeverity = continuitySeverity(lastContinuityQa);
       chapterState.coverageSeverity = auditSeverity(lastCoverageAudit);
       chapterState.qaPath = path.relative(run.runDir, failedQaPath).replaceAll("\\", "/");
@@ -1005,10 +1165,10 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
         continuitySeverity: continuitySeverity(lastContinuityQa),
         coverageSeverity: auditSeverity(lastCoverageAudit),
         repairDecision: lastRepairPlan?.decision ?? null,
-        message: "连续性或原文覆盖率存在高危问题，已停止流水线；请查看 failed_qa.json、attempt_*_continuity_qa.json、attempt_*_rewrite_audit.json"
+        message: "连续性、原文覆盖率或局部风格修补仍存在阻断问题，已停止流水线；请查看 failed_qa.json、attempt_*_style_fix_*、attempt_*_rewrite_audit.json"
       });
 
-      throw new Error(`章节「${chapter.title}」连续性或原文覆盖率存在高危问题，已停止以避免污染后文。`);
+      throw new Error(`章节「${chapter.title}」连续性、覆盖率或风格修补存在阻断问题，已停止以避免污染后文。`);
     }
 
     accepted = lastDraft;
@@ -1078,6 +1238,7 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
   const maxAttempts = Number(style.max_rewrite_attempts ?? 3);
   const contextTailChars = Number(style.context_tail_chars ?? 1200);
   const allowForcedAcceptOnContinuityFailure = Boolean(style.allow_forced_accept_on_continuity_failure ?? false);
+  const styleFixAttempts = Number(style.style_fix_attempts ?? 2);
   const chapters = splitChapters(text, fallbackChunkChars);
 
   const run = resumeRunDir
@@ -1097,7 +1258,8 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
     fallbackChunkChars,
     maxAttempts,
     contextTailChars,
-    allowForcedAcceptOnContinuityFailure
+    allowForcedAcceptOnContinuityFailure,
+    styleFixAttempts
   };
   await saveManifest(run);
 
@@ -1135,6 +1297,7 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
       maxAttempts,
       contextTailChars,
       allowForcedAcceptOnContinuityFailure,
+      styleFixAttempts,
       logger
     );
   }
