@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "req_01",
+    "req_02",
+    "req_03",
+    "req_04",
+    "req_05",
+    "req_06",
+    "req_07"
+  ],
+  "missing_required_items": [],
+  "compressed_items": [
+    "车马店外观与环境描写",
+    "无涯子一行人服饰与动作细节（皮褥子保留在动作中）",
+    "正夫大防俚语重复",
+    "风月供奉二次说明",
+    "青云门建筑风景刻画",
+    "冗长历史背景如光云太宗引入细节"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "PASSED: all required items covered.",
+  "next_revision_orders": []
+}

@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "req_01",
+    "req_02",
+    "req_03",
+    "req_04",
+    "req_05",
+    "req_06",
+    "req_07"
+  ],
+  "missing_required_items": [],
+  "compressed_items": [
+    "车马店外观与环境描写（仅保留破招牌在风中拍打）",
+    "无涯子一行人服饰与动作细节简化",
+    "平婚制度重复解释（俚语、风月供奉二次说明）已删除",
+    "青云门建筑群刻画简化（未再提无名湖、孤霞塔）",
+    "平婚制度历史背景冗长叙述压缩"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "无",
+  "next_revision_orders": []
+}

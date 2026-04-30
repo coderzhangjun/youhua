@@ -1,0 +1,69 @@
+{
+  "style": {
+    "passed": true,
+    "issues": [],
+    "revision_advice": "改写稿已明显压缩非核心内容，忠实于原基调，未使用禁用词，符合所有规则，无需修改。",
+    "summary": "本章为剧情铺垫，成功精简了环境描写和重复的制度说明，保留了元阳教背景、若兰之死的悬念以及平婚制度的核心规则，长度和比例均符合要求。",
+    "ending_tail": ""
+  },
+  "continuity": {
+    "passed": false,
+    "severity": "major",
+    "issues": [
+      "改写稿遗漏了原文章节中关于平婚时间的规定：订婚之后六个月就要举办平婚燕尔。"
+    ],
+    "revision_advice": "在说明平婚制度时，加入‘《新宋民律》规定订婚之后六个月即须举办平婚燕尔’一句，以保持时间线规则的完整性。",
+    "facts_delta": {
+      "added": [],
+      "modified": [],
+      "removed": [
+        "订婚之后六个月举办平婚燕尔的时间规定"
+      ]
+    },
+    "risk_summary": "本章遗漏订婚到平婚的法定六个月期限，可能在后续情节中造成时间线矛盾或规则缺失，影响中等。"
+  },
+  "coverage": {
+    "passed": true,
+    "severity": "none",
+    "coverage_ratio": 1,
+    "covered_required_items": [
+      "req_01",
+      "req_02",
+      "req_03",
+      "req_04",
+      "req_05",
+      "req_06",
+      "req_07"
+    ],
+    "missing_required_items": [],
+    "compressed_items": [
+      "车马店的外观与环境描写",
+      "无涯子一行人的服饰与动作细节（如皮褥子、长囊等）",
+      "平婚制度中重复的解释（如正夫大防俚语、风月供奉二次说明）",
+      "青云门建筑群的过度刻画",
+      "对平婚制度历史背景的冗长叙述"
+    ],
+    "unapproved_additions": [],
+    "root_cause": "None",
+    "next_revision_orders": [
+      "当前改写稿已完全覆盖所有强制事实，无需进一步修订。继续按此标准执行后续章节审计。"
+    ]
+  },
+  "repair_plan": {
+    "decision": "retry_rewrite",
+    "root_cause_type": [
+      "coverage_loss"
+    ],
+    "blocking": false,
+    "evidence": [
+      "连续性质检发现遗漏平婚时间规定：订婚之后六个月举办平婚燕尔的细节缺失，可能造成后续时间线矛盾。"
+    ],
+    "repair_orders": [
+      "在说明平婚制度的内容中，补充‘《新宋民律》规定订婚之后六个月即须举办平婚燕尔’一句，确保规则完整性。"
+    ],
+    "context_requests": [],
+    "system_bug_report": "",
+    "acceptance_rationale": "仅遗漏一项时间规则细节，整体风格和覆盖率已达标，可通过小幅重写直接修复，无需刷新上下文。"
+  },
+  "forced_accept": true
+}

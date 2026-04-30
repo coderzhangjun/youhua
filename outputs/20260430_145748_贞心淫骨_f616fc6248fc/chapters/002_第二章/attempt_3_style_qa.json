@@ -1,0 +1,32 @@
+{
+  "passed": false,
+  "issues": [
+    {
+      "severity": "blocker",
+      "type": "forbidden_metaphor_word",
+      "description": "使用了禁用喻词“如”（“快如闪电”、“剑尖如毒蛇般探出”、“如若不是对敌”）和“像”（“像是有名师大家指点过的”），违反比喻结构禁用规则。",
+      "location": "比武场景多处"
+    },
+    {
+      "severity": "major",
+      "type": "non_erotic_compression_failure",
+      "description": "非色情剧情仍存在冗余，输出/原文长度比为0.537，超过plot_setup最大建议比例0.45。可进一步压缩冀芳华传剑中的剑法理论说明和比武招式拆解。",
+      "location": "冀芳华传剑说明及黄璞比武细节"
+    },
+    {
+      "type": "forbidden_terms",
+      "terms": [
+        "如"
+      ]
+    },
+    {
+      "type": "non_erotic_too_long",
+      "outputRatio": 0.537,
+      "threshold": 0.45,
+      "advice": "非 explicit_sex 章节仍过长，请继续压缩背景、环境、路人对白和设定说明，只保留硬伏笔与成人剧情核心所需信息。"
+    }
+  ],
+  "revision_advice": "1. 删除所有喻词“如”、“像”，改用直接描述，如“快得惊人”“剑尖毒蛇般探出”（需避免“般”这种可能被视为比喻的词，但规则只禁用“像、如、仿佛、似、恍若”，所以用“般”可能可以，但谨慎起见最好换为无喻词的表达）。2. 进一步精简销魂剑的理论阐释，仅保留与暧昧互动直接相关的部分；压缩黄璞比武的剑招变化描写，保留胜负关键即可。3. 可合并冀芳华背景叙述，避免重复。",
+  "summary": "改写稿仍有禁用比喻词命中，且未达标plot_setup章节的长度压缩要求，需删简冗余剑法理论并修改禁用词。",
+  "ending_tail": null
+}

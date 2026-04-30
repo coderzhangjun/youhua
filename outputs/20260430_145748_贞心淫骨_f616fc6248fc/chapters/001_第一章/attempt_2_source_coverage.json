@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "req_01",
+    "req_02",
+    "req_03",
+    "req_04",
+    "req_05",
+    "req_06",
+    "req_07"
+  ],
+  "missing_required_items": [],
+  "unapproved_additions": []
+}

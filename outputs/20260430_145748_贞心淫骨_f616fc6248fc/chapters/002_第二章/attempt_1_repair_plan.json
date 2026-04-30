@@ -1,0 +1,25 @@
+{
+  "decision": "retry_rewrite",
+  "root_cause_type": [
+    "coverage_loss",
+    "style_rule_conflict"
+  ],
+  "blocking": true,
+  "evidence": {
+    "style_issues": [
+      "命中禁用比喻词'像'、'如'",
+      "输出字数比例0.656超出 plot_setup_max_output_ratio 0.45"
+    ],
+    "coverage_gap": "缺失 R6 丁浩天叛出师门伏笔",
+    "continuity_risk": "删除李晋霄皇族秘辛段落可能轻微影响伏笔，但未影响本次通过"
+  },
+  "repair_orders": [
+    "1. 全文检索并替换所有'像'为'似乎'、'如同'等非禁用词（禁止使用'似'），替换'如'为'如同'或改换句式。",
+    "2. 大幅压缩剑法理论说明、黄璞比武剑招拆解、围观群众反应等非核心描写，确保总输出字数/原文字数 ≤ 0.45，保留核心伏笔和情感互动。",
+    "3. 在冀芳华传剑回忆段落中，于'大师哥丁浩天想陪她喂招拆招'前补充'刚刚叛出师门的大师哥'字样，恢复丁浩天叛出事实。",
+    "4. 可选：若篇幅允许，将李晋霄身世敏感信息段落（皇族秘辛、辽国间细战）以浓缩方式补回，维持后续伏笔连续性。"
+  ],
+  "context_requests": [],
+  "system_bug_report": null,
+  "acceptance_rationale": "当前失败源于风格违规和单一伏笔缺失，均可在下一轮通过明确指令修复，无需终止流程。"
+}

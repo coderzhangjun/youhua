@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "severity": "medium",
+  "issues": [
+    {
+      "type": "fact_omission",
+      "description": "删除了关于‘我’的身世敏感信息段落，涉及皇族秘辛和辽国间细战，可能影响后续伏笔铺垫。",
+      "location": "原稿在‘大家有时笑言：这个小女婿还是蛮懂事的。’之后"
+    }
+  ],
+  "revision_advice": "建议保留该段或确保后续章节会重新提及，以维持背景连续。",
+  "facts_delta": {
+    "removed": [
+      "李晋霄身世涉及皇族秘辛和辽国间细战，青云门仅师父知晓"
+    ]
+  },
+  "risk_summary": "无重大事实冲突，仅删除背景信息可能轻微影响伏笔设置。"
+}

@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "req_01",
+    "req_02",
+    "req_03",
+    "req_04",
+    "req_05",
+    "req_06",
+    "req_07"
+  ],
+  "missing_required_items": [],
+  "compressed_items": [
+    "车马店外观与环境描写（精简）",
+    "无涯子一行人服饰细节如长囊（删除）",
+    "平婚制度重复解释如俚语二次出现（删除）",
+    "青云门建筑过度刻画如无名湖孤霞塔由来（删除）",
+    "平婚制度历史背景冗长叙述（压缩）"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "无",
+  "next_revision_orders": []
+}

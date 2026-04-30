@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 0.857,
+  "covered_required_items": [
+    "req_01",
+    "req_02",
+    "req_03",
+    "req_04",
+    "req_05",
+    "req_07"
+  ],
+  "missing_required_items": [
+    {
+      "id": "req_06",
+      "description": "青云门结构未完全覆盖：原文要求包含甲院、癸院、丙院、丁院、辛院等分区及其真实作用，改写稿只提及甲院、癸院、丙院，缺失丁院和辛院。"
+    }
+  ],
+  "compressed_items": [
+    "车马店外观与环境描写（如招牌摇摆、官道冷清）已压缩",
+    "无涯子等服饰动作细节（如皮褥子、长囊）删除",
+    "平婚制度重复解释（俚语、风月供奉二次说明）合并",
+    "青云门建筑群冗长刻画（无名湖、孤霞塔等名称）删除"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "",
+  "next_revision_orders": "可选：补充青云门丁院和辛院的简要描述，完整覆盖世界观地理。"
+}

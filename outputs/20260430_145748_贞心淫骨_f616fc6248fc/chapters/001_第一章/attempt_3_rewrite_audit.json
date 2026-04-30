@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "req_01",
+    "req_02",
+    "req_03",
+    "req_04",
+    "req_05",
+    "req_06",
+    "req_07"
+  ],
+  "missing_required_items": [],
+  "compressed_items": [
+    "车马店外观与环境描写精简为只保留招牌摇摆和冷清气氛",
+    "无涯子一行人的服饰与动作细节压缩（如皮褥子、长囊等仅提及）",
+    "正夫大防的俚语完全删除",
+    "风月供奉的二次说明删除",
+    "青云门建筑群的过度刻画压缩（如无名湖、孤霞塔等名称由来简化或省略）",
+    "平婚制度历史背景冗长叙述精简",
+    "冗长的雪景和路人描写删除"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "None",
+  "next_revision_orders": []
+}

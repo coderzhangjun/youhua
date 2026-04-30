@@ -1,0 +1,14 @@
+{
+  "passed": false,
+  "issues": [
+    {
+      "type": "non_erotic_too_long",
+      "outputRatio": 0.5,
+      "threshold": 0.45,
+      "advice": "非 explicit_sex 章节仍过长，请继续压缩背景、环境、路人对白和设定说明，只保留硬伏笔与成人剧情核心所需信息。"
+    }
+  ],
+  "revision_advice": "",
+  "summary": "改写稿有效压缩了环境描写与平婚制度冗余说明，保留了元阳教背景、若兰之死悬念及核心世界观规则，无禁用词，基调忠实于悲剧性复仇与压抑氛围，未添加色情或性暗示，非色情内容压缩到位。",
+  "ending_tail": ""
+}

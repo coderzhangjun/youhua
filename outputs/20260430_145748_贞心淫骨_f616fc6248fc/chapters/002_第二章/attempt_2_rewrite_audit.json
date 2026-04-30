@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8"
+  ],
+  "missing_required_items": [],
+  "compressed_items": [
+    "天娇剑法繁复理论（12剑式256剑招等）",
+    "黄璞比武的剑招拆解长篇幅描写",
+    "围观群众对烟儿比武的嘲笑反应",
+    "李晋霄回忆照顾烟儿的冗长心理活动",
+    "剑法理论阐释"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "",
+  "next_revision_orders": []
+}

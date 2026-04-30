@@ -1,0 +1,16 @@
+{
+  "decision": "retry_rewrite",
+  "root_cause_type": [
+    "coverage_loss"
+  ],
+  "blocking": false,
+  "evidence": [
+    "连续性质检发现遗漏平婚时间规定：订婚之后六个月举办平婚燕尔的细节缺失，可能造成后续时间线矛盾。"
+  ],
+  "repair_orders": [
+    "在说明平婚制度的内容中，补充‘《新宋民律》规定订婚之后六个月即须举办平婚燕尔’一句，确保规则完整性。"
+  ],
+  "context_requests": [],
+  "system_bug_report": "",
+  "acceptance_rationale": "仅遗漏一项时间规则细节，整体风格和覆盖率已达标，可通过小幅重写直接修复，无需刷新上下文。"
+}

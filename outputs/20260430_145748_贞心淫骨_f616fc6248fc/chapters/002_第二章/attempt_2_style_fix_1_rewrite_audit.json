@@ -1,0 +1,28 @@
+{
+  "passed": false,
+  "severity": "high",
+  "coverage_ratio": 0.875,
+  "covered_required_items": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R8"
+  ],
+  "missing_required_items": [
+    "R7: 缺失‘不解出处’和‘嘱咐冀师姐不可外传’的伏笔"
+  ],
+  "compressed_items": [
+    "烟儿日常练武偷懒细节",
+    "天娇剑法理论详释",
+    "黄璞比武剑招拆解",
+    "围观群众嘲笑反应"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "改写稿在冀芳华传剑回忆中保留诗作背诵，但缺失了‘不解出处’和‘嘱咐冀师姐不可外传’的明确表述，导致R7硬事实未完全覆盖。",
+  "next_revision_orders": [
+    "在背诵诗作后，加入一句‘此诗我查遍诗集未得，不解出处，故嘱咐冀师姐千万不可外传’，确保R7伏笔完整。"
+  ]
+}

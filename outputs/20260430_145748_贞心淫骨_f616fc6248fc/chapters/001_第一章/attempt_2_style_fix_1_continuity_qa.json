@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "severity": "medium",
+  "issues": [
+    {
+      "type": "character_name_misspelling",
+      "severity": "medium",
+      "detail": "改写稿将女孩姓名由原文的“枊如烟”改为“柳如烟”，疑似擅自改动人物姓名，可能影响后续一致性。",
+      "location": "改写稿中段"
+    },
+    {
+      "type": "timeline_contradiction",
+      "severity": "low",
+      "detail": "原文存在“九年过去”与“八年之前”的自相矛盾，改写稿延续了这一错误，未予纠正。",
+      "location": "时间转换处"
+    }
+  ],
+  "revision_advice": "1. 将“柳如烟”改回“枊如烟”，确保与原始设定一致；2. 统一时间描述，建议改为“九年之前的那场惨剧”或相应调整。",
+  "facts_delta": {},
+  "risk_summary": "改写稿忠实于原文章节，未擅自新增、删除或反转重大事实，仅存在一处可能的人物姓名偏差和原文遗留的细微时间矛盾，不会污染主线。"
+}
