@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "severity": "low",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "REQ-01",
+    "REQ-02",
+    "REQ-03",
+    "REQ-04",
+    "REQ-05",
+    "REQ-06",
+    "REQ-07",
+    "REQ-08",
+    "REQ-09",
+    "REQ-10"
+  ],
+  "missing_required_items": [],
+  "compressed_items": [
+    "COMP-01: 围观群众哄笑氛围保留，具体议论压缩为一句氛围描写。",
+    "COMP-02: 黄璞比武剑招分解压缩，仅保留关键回合和险胜转折点。",
+    "COMP-03: 李晋霄对烟儿的描述精简为一段，点明喜文厌武、依赖关系。",
+    "COMP-04: 回忆中销魂剑示范压缩重复动作，保留核心暧昧节点（脸红、眼光分不开、诗句调戏）。",
+    "COMP-05: 师父与其他师叔伯互动压缩，仅保留师父险些晕倒和大师娘安抚。"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "All required hard fact items are fully covered in the rewrite.",
+  "next_revision_orders": []
+}

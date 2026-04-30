@@ -1,0 +1,813 @@
+{
+  "runId": "20260430_130525_贞心淫骨_f616fc6248fc",
+  "status": "running",
+  "createdAt": "2026-04-30T05:05:25.077Z",
+  "updatedAt": "2026-04-30T06:37:50.503Z",
+  "source": {
+    "txtPath": "F:\\youhua\\youhua-repo\\贞心淫骨.txt",
+    "knowledgeBasePath": "F:\\youhua\\youhua-repo\\knowledge_base_贞心淫骨.json",
+    "textHash": "f616fc6248fc9e03e341b859694b8294154d43f8e5fb3f17bf4c2e3a2ad1b7bb"
+  },
+  "config": {
+    "projectConfigHash": "a3b5e7b862874b651f8e388ded1b70cbe345180a6aba67cc06db41c49285ef22",
+    "customRulesHash": "ea8398efe86eb9568126b59b977b53df615521dc7e327d72c241d1a6b30b7581"
+  },
+  "chapters": [
+    {
+      "index": 0,
+      "title": "第一章",
+      "status": "accepted",
+      "attempts": 3,
+      "sourceChars": 9763,
+      "sourceStart": 0,
+      "sourceEnd": 9767,
+      "startedAt": "2026-04-30T05:05:25.082Z",
+      "lastStylePassed": false,
+      "lastContinuityPassed": true,
+      "finishedAt": "2026-04-30T05:33:06.688Z",
+      "acceptedPath": "chapters/001_第一章/accepted.txt",
+      "qaPath": "chapters/001_第一章/accepted_qa.json",
+      "acceptedChars": 3885,
+      "forcedAccept": true,
+      "risks": {
+        "style": [
+          "禁用隐喻词命中：多处使用'如'、'像'等比喻词。例如：'若兰姨如娘亲般教养呵护'、'如地狱里出来的索命使者'、'像铁岭门、点苍寨、雁行门这样的门派'、'这里像甲院那样的大院子'。",
+          "非色情剧情冗余：平婚制度大段解释仍存在，违反压缩政策中'可大幅压缩平婚制度大段的详细解释'的要求，未能将世界观设定精简至仅服务于剧情核心所需。",
+          {
+            "type": "forbidden_terms",
+            "terms": [
+              "似",
+              "像",
+              "如"
+            ]
+          }
+        ],
+        "continuity": [],
+        "coverage": [],
+        "repair": [
+          "风格质检发现多处禁用比喻词（如、像），违反了全局比喻禁用规则",
+          "平婚制度解释段落压缩不充分，未达到精简要求",
+          "连续性质检和覆盖率审计均通过，无严重事实矛盾"
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "title": "第二章",
+      "status": "accepted",
+      "attempts": 3,
+      "sourceChars": 7691,
+      "sourceStart": 9767,
+      "sourceEnd": 17463,
+      "startedAt": "2026-04-30T05:33:06.691Z",
+      "lastStylePassed": false,
+      "lastContinuityPassed": false,
+      "finishedAt": "2026-04-30T06:02:19.646Z",
+      "acceptedPath": "chapters/002_第二章/accepted.txt",
+      "qaPath": "chapters/002_第二章/accepted_qa.json",
+      "acceptedChars": 5892,
+      "forcedAccept": true,
+      "risks": {
+        "style": [
+          {
+            "type": "forbidden_terms",
+            "terms": [
+              "似",
+              "像",
+              "如"
+            ]
+          }
+        ],
+        "continuity": [
+          {
+            "type": "deletion",
+            "description": "删除了李晋霄身世秘密的重要伏笔：“我的身世不止涉及非常敏感的皇族秘辛，有太多忌讳，还与辽国的间细战有关系，整个青云门中除了师父，可能连常驻青云门的皇城司大职事，挂着副掌门名头的老马都不知道。”这一信息为主角核心设定之一，删除可能破坏后续身世揭晓的连续性。",
+            "severity": "major",
+            "suggestion": "在适当位置补回这段话，或至少用一句话点明晋霄身世涉及皇族秘辛和辽国间细战，以保持伏笔完整。"
+          },
+          {
+            "type": "deletion",
+            "description": "删除大师兄丁浩天的相关情节：曾追求冀芳华、因吃醋借指点之名报复李晋霄、被冀芳华发作；以及冀芳华拒绝丁浩天陪练“销魂剑”的对话。丁浩天作为“叛出师门的大师哥”已在原文出场，其行为可能为后续冲突或人物关系埋线。",
+            "severity": "medium",
+            "suggestion": "恢复丁浩天的存在，至少保留“大师哥丁浩天曾追求冀师姐，因吃醋报复过我”这一笔，以维持人物关系网的完整。"
+          },
+          {
+            "type": "deletion",
+            "description": "删除无涯子对若兰临终时烟儿是否醒来的反复确认：“师父后来一再问我，若兰姨离世的那一刻，她是不是醒了，看见了什么……”这一细节虽不影响主线，但深化了无涯子对真相的敏感和父女隔阂的心理背景。",
+            "severity": "low",
+            "suggestion": "可选择性补回，如希望精简，可压缩为一句“师父曾反复确认烟儿是否目睹惨剧”带过。"
+          },
+          {
+            "type": "deletion",
+            "description": "删除了烟儿童年以头撞墙的极端刚烈事件（9岁时），仅保留了“打骂”等常规冲突，削弱了烟儿性格的刻画力度。",
+            "severity": "low",
+            "suggestion": "如字数允许，补回这一细节以强化烟儿的性格烙印；或可用“她曾激烈到以死相抗”概括。"
+          },
+          {
+            "type": "deletion",
+            "description": "删除了冀芳华修炼过内媚之术这一设定，她因此容易在感情警戒放松时被挑起情欲。该设定可解释她为何在练习中对李晋霄逐渐失控，并可能对后续感情线的发展有逻辑支撑。",
+            "severity": "medium",
+            "suggestion": "恢复内媚之术的提及，即使简化成“冀师姐曾告诉我，她修过一种特殊内功，容易在亲近时动情”，以保持人物特质的连贯性。"
+          },
+          {
+            "type": "modification",
+            "description": "烟儿的年龄从原文的“14岁”纠正为“13岁”，符合账本设定，且与后文“十三年半”自洽。此为修正，非新增错误。",
+            "severity": "low",
+            "suggestion": "无"
+          }
+        ],
+        "coverage": [],
+        "repair": [
+          "连续性删减：李晋霄身世秘密伏笔被删除（涉及皇族秘辛、辽国间细战），可能破坏主线身世揭晓。",
+          "人物线断裂：大师哥丁浩天曾追求冀芳华、因吃醋报复李晋霄、被冀芳华发作的情节被删除，导致后续人物关系网不完整。",
+          "连续性弱化：冀芳华修炼内媚之术的设定被删除，可能削弱其在感情发展中逐渐失控的生理逻辑。",
+          "其他次要伏笔删除：无涯子反复确认烟儿是否目睹若兰死亡、烟儿九岁以头撞墙等性格细节丢失。"
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "title": "第三章",
+      "status": "accepted",
+      "attempts": 3,
+      "sourceChars": 9147,
+      "sourceStart": 17463,
+      "sourceEnd": 26614,
+      "startedAt": "2026-04-30T06:02:19.648Z",
+      "lastStylePassed": false,
+      "lastContinuityPassed": true,
+      "finishedAt": "2026-04-30T06:37:50.500Z",
+      "acceptedPath": "chapters/003_第三章/accepted.txt",
+      "qaPath": "chapters/003_第三章/accepted_qa.json",
+      "acceptedChars": 7961,
+      "forcedAccept": true,
+      "risks": {
+        "style": [
+          "出现禁用比喻词“像”（“像父亲一样”）",
+          "出现禁用比喻词“如”（“头发乌黑如墨”）",
+          {
+            "type": "forbidden_terms",
+            "terms": [
+              "似",
+              "像",
+              "如"
+            ]
+          }
+        ],
+        "continuity": [],
+        "coverage": [],
+        "repair": [
+          "风格质检发现禁用比喻词“像”（“像父亲一样”）",
+          "风格质检发现禁用比喻词“如”（“头发乌黑如墨”）"
+        ]
+      }
+    },
+    {
+      "index": 3,
+      "title": "第四章",
+      "status": "running",
+      "attempts": 0,
+      "sourceChars": 7365,
+      "sourceStart": 26614,
+      "sourceEnd": 33983,
+      "startedAt": "2026-04-30T06:37:50.503Z"
+    },
+    {
+      "index": 4,
+      "title": "第五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 7582,
+      "sourceStart": 33983,
+      "sourceEnd": 41569
+    },
+    {
+      "index": 5,
+      "title": "第六章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 8376,
+      "sourceStart": 41569,
+      "sourceEnd": 49949
+    },
+    {
+      "index": 6,
+      "title": "第七章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 17637,
+      "sourceStart": 49949,
+      "sourceEnd": 67592
+    },
+    {
+      "index": 7,
+      "title": "第九章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 8868,
+      "sourceStart": 67592,
+      "sourceEnd": 76466
+    },
+    {
+      "index": 8,
+      "title": "第十章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9548,
+      "sourceStart": 76466,
+      "sourceEnd": 86024
+    },
+    {
+      "index": 9,
+      "title": "第十一章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 10180,
+      "sourceStart": 86024,
+      "sourceEnd": 96208
+    },
+    {
+      "index": 10,
+      "title": "第十二章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9782,
+      "sourceStart": 96208,
+      "sourceEnd": 106000
+    },
+    {
+      "index": 11,
+      "title": "第十三章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 10676,
+      "sourceStart": 106000,
+      "sourceEnd": 116680
+    },
+    {
+      "index": 12,
+      "title": "第十四章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 8141,
+      "sourceStart": 116680,
+      "sourceEnd": 124825
+    },
+    {
+      "index": 13,
+      "title": "第十五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 8852,
+      "sourceStart": 124825,
+      "sourceEnd": 133713
+    },
+    {
+      "index": 14,
+      "title": "第十六章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9174,
+      "sourceStart": 133713,
+      "sourceEnd": 142895
+    },
+    {
+      "index": 15,
+      "title": "第十七章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9359,
+      "sourceStart": 142895,
+      "sourceEnd": 152264
+    },
+    {
+      "index": 16,
+      "title": "第十八章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9915,
+      "sourceStart": 152264,
+      "sourceEnd": 162187
+    },
+    {
+      "index": 17,
+      "title": "第十九章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9372,
+      "sourceStart": 162187,
+      "sourceEnd": 171569
+    },
+    {
+      "index": 18,
+      "title": "第二十章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9337,
+      "sourceStart": 171569,
+      "sourceEnd": 180914
+    },
+    {
+      "index": 19,
+      "title": "第二十一章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9136,
+      "sourceStart": 180914,
+      "sourceEnd": 190060
+    },
+    {
+      "index": 20,
+      "title": "第二十二章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9603,
+      "sourceStart": 190060,
+      "sourceEnd": 199671
+    },
+    {
+      "index": 21,
+      "title": "第二十三章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9603,
+      "sourceStart": 199671,
+      "sourceEnd": 209282
+    },
+    {
+      "index": 22,
+      "title": "第二十四章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 11988,
+      "sourceStart": 209282,
+      "sourceEnd": 221276
+    },
+    {
+      "index": 23,
+      "title": "第二十五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 18345,
+      "sourceStart": 221276,
+      "sourceEnd": 239631
+    },
+    {
+      "index": 24,
+      "title": "第二十六章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 11619,
+      "sourceStart": 239631,
+      "sourceEnd": 251258
+    },
+    {
+      "index": 25,
+      "title": "第二十七章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12347,
+      "sourceStart": 251258,
+      "sourceEnd": 263619
+    },
+    {
+      "index": 26,
+      "title": "第二十八章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12407,
+      "sourceStart": 263619,
+      "sourceEnd": 276034
+    },
+    {
+      "index": 27,
+      "title": "第二十九章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 11797,
+      "sourceStart": 276034,
+      "sourceEnd": 287837
+    },
+    {
+      "index": 28,
+      "title": "第三十章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 11775,
+      "sourceStart": 287837,
+      "sourceEnd": 299618
+    },
+    {
+      "index": 29,
+      "title": "第三十一章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13428,
+      "sourceStart": 299618,
+      "sourceEnd": 313050
+    },
+    {
+      "index": 30,
+      "title": "第三十二章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14743,
+      "sourceStart": 313050,
+      "sourceEnd": 327805
+    },
+    {
+      "index": 31,
+      "title": "第三十三章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12285,
+      "sourceStart": 327805,
+      "sourceEnd": 340102
+    },
+    {
+      "index": 32,
+      "title": "第三十四章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 11940,
+      "sourceStart": 340102,
+      "sourceEnd": 352052
+    },
+    {
+      "index": 33,
+      "title": "第三十五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12459,
+      "sourceStart": 352052,
+      "sourceEnd": 364517
+    },
+    {
+      "index": 34,
+      "title": "第三十六章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12847,
+      "sourceStart": 364517,
+      "sourceEnd": 377376
+    },
+    {
+      "index": 35,
+      "title": "第三十七章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13330,
+      "sourceStart": 377376,
+      "sourceEnd": 390710
+    },
+    {
+      "index": 36,
+      "title": "第三十八章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12645,
+      "sourceStart": 390710,
+      "sourceEnd": 403367
+    },
+    {
+      "index": 37,
+      "title": "第三十九章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12679,
+      "sourceStart": 403367,
+      "sourceEnd": 416054
+    },
+    {
+      "index": 38,
+      "title": "第四十章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 36840,
+      "sourceStart": 416054,
+      "sourceEnd": 452900
+    },
+    {
+      "index": 39,
+      "title": "第四十三章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12559,
+      "sourceStart": 452900,
+      "sourceEnd": 465471
+    },
+    {
+      "index": 40,
+      "title": "第四十四章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13106,
+      "sourceStart": 465471,
+      "sourceEnd": 478583
+    },
+    {
+      "index": 41,
+      "title": "第四十五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12840,
+      "sourceStart": 478583,
+      "sourceEnd": 491429
+    },
+    {
+      "index": 42,
+      "title": "第四十六章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14328,
+      "sourceStart": 491429,
+      "sourceEnd": 505761
+    },
+    {
+      "index": 43,
+      "title": "第四十七章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13459,
+      "sourceStart": 505761,
+      "sourceEnd": 519226
+    },
+    {
+      "index": 44,
+      "title": "第四十八章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12153,
+      "sourceStart": 519226,
+      "sourceEnd": 531383
+    },
+    {
+      "index": 45,
+      "title": "第四十九章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13398,
+      "sourceStart": 531383,
+      "sourceEnd": 544789
+    },
+    {
+      "index": 46,
+      "title": "第五十章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14454,
+      "sourceStart": 544789,
+      "sourceEnd": 559251
+    },
+    {
+      "index": 47,
+      "title": "第五十一章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14354,
+      "sourceStart": 559251,
+      "sourceEnd": 573613
+    },
+    {
+      "index": 48,
+      "title": "第五十二章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13960,
+      "sourceStart": 573613,
+      "sourceEnd": 587581
+    },
+    {
+      "index": 49,
+      "title": "第五十八章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13907,
+      "sourceStart": 587581,
+      "sourceEnd": 601496
+    },
+    {
+      "index": 50,
+      "title": "第五十四章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14345,
+      "sourceStart": 601496,
+      "sourceEnd": 615849
+    },
+    {
+      "index": 51,
+      "title": "第五十五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13002,
+      "sourceStart": 615849,
+      "sourceEnd": 628859
+    },
+    {
+      "index": 52,
+      "title": "第五十六章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14137,
+      "sourceStart": 628859,
+      "sourceEnd": 643002
+    },
+    {
+      "index": 53,
+      "title": "第五十七章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13993,
+      "sourceStart": 643002,
+      "sourceEnd": 657003
+    },
+    {
+      "index": 54,
+      "title": "第五十八章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 17246,
+      "sourceStart": 657003,
+      "sourceEnd": 674257
+    },
+    {
+      "index": 55,
+      "title": "第五十九章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13524,
+      "sourceStart": 674257,
+      "sourceEnd": 687793
+    },
+    {
+      "index": 56,
+      "title": "第六十章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13157,
+      "sourceStart": 687793,
+      "sourceEnd": 700958
+    },
+    {
+      "index": 57,
+      "title": "第六十一章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14208,
+      "sourceStart": 700958,
+      "sourceEnd": 715180
+    },
+    {
+      "index": 58,
+      "title": "第六十二章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 9915,
+      "sourceStart": 715180,
+      "sourceEnd": 725105
+    },
+    {
+      "index": 59,
+      "title": "第六十三章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 4956,
+      "sourceStart": 725105,
+      "sourceEnd": 730093
+    },
+    {
+      "index": 60,
+      "title": "第六十四章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 16700,
+      "sourceStart": 730093,
+      "sourceEnd": 746799
+    },
+    {
+      "index": 61,
+      "title": "第六十五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13629,
+      "sourceStart": 746799,
+      "sourceEnd": 760440
+    },
+    {
+      "index": 62,
+      "title": "第六十六章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13688,
+      "sourceStart": 760440,
+      "sourceEnd": 774134
+    },
+    {
+      "index": 63,
+      "title": "第六十七章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14083,
+      "sourceStart": 774134,
+      "sourceEnd": 788223
+    },
+    {
+      "index": 64,
+      "title": "第六十八章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 13013,
+      "sourceStart": 788223,
+      "sourceEnd": 801246
+    },
+    {
+      "index": 65,
+      "title": "第六十九章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 12563,
+      "sourceStart": 801246,
+      "sourceEnd": 813815
+    },
+    {
+      "index": 66,
+      "title": "第七十章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 14313,
+      "sourceStart": 813815,
+      "sourceEnd": 828140
+    },
+    {
+      "index": 67,
+      "title": "第七十一章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 10571,
+      "sourceStart": 828140,
+      "sourceEnd": 838715
+    },
+    {
+      "index": 68,
+      "title": "第一章凤啼初试月笼沙",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 7434,
+      "sourceStart": 838715,
+      "sourceEnd": 846177
+    },
+    {
+      "index": 69,
+      "title": "第二章镜花水月演红楼",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 10039,
+      "sourceStart": 846177,
+      "sourceEnd": 856244
+    },
+    {
+      "index": 70,
+      "title": "第三章霓裳羽衣试云雨",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 17488,
+      "sourceStart": 856244,
+      "sourceEnd": 873742
+    },
+    {
+      "index": 71,
+      "title": "第四章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 11225,
+      "sourceStart": 873742,
+      "sourceEnd": 885003
+    },
+    {
+      "index": 72,
+      "title": "第五章",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 5320,
+      "sourceStart": 885003,
+      "sourceEnd": 890331
+    },
+    {
+      "index": 73,
+      "title": "第六章 镜花水月锁重楼",
+      "status": "pending",
+      "attempts": 0,
+      "sourceChars": 39588,
+      "sourceStart": 890331,
+      "sourceEnd": 929937
+    }
+  ],
+  "totalChapters": 74,
+  "options": {
+    "fallbackChunkChars": 8000,
+    "maxAttempts": 3,
+    "contextTailChars": 1200,
+    "allowForcedAcceptOnContinuityFailure": false
+  }
+}

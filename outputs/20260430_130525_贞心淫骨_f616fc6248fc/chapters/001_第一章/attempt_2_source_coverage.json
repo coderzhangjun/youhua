@@ -1,0 +1,22 @@
+{
+  "passed": false,
+  "severity": "critical",
+  "coverage_ratio": 0.83,
+  "covered_required_items": [
+    "R1",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R9",
+    "R10",
+    "R11",
+    "R12"
+  ],
+  "missing_required_items": [
+    "R2 (遗言中缺失‘北辰裂空剑’)",
+    "R8 (缺失守贞砂、眉心散、正夫大防、平夫大防等核心概念定义)"
+  ],
+  "unapproved_additions": []
+}

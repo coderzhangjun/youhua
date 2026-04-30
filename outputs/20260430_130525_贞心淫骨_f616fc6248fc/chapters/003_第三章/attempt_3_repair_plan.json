@@ -1,0 +1,20 @@
+{
+  "decision": "retry_rewrite",
+  "root_cause_type": [
+    "style_rule_conflict"
+  ],
+  "blocking": true,
+  "evidence": [
+    "风格质检发现禁用比喻词“像”（“像父亲一样”）",
+    "风格质检发现禁用比喻词“如”（“头发乌黑如墨”）"
+  ],
+  "repair_orders": [
+    "全文扫描，彻底删除所有“像”“如”“似”“仿佛”“恍若”等比喻词，改用直白表述。",
+    "将“像父亲一样”改为“与父亲一样”或“效仿父亲”。",
+    "将“头发乌黑如墨”改为“头发乌黑亮泽”或“头发乌黑浓密”。",
+    "确保无任何禁用比喻词残留。"
+  ],
+  "context_requests": [],
+  "system_bug_report": null,
+  "acceptance_rationale": null
+}

@@ -1,0 +1,21 @@
+{
+  "decision": "retry_rewrite",
+  "root_cause_type": [
+    "prompt_drift",
+    "style_rule_conflict"
+  ],
+  "blocking": false,
+  "evidence": [
+    "风格质检发现多处禁用比喻词（如、像），违反了全局比喻禁用规则",
+    "平婚制度解释段落压缩不充分，未达到精简要求",
+    "连续性质检和覆盖率审计均通过，无严重事实矛盾"
+  ],
+  "repair_orders": [
+    "彻底删除所有比喻词（如、像、似、仿佛、俨然等），使用直接描述替代",
+    "将平婚制度解释压缩至3-5句，仅保留核心概念，删除详细制度背景和多余举例",
+    "再次确认全文无其他风格违规，保持肃穆悲剧基调"
+  ],
+  "context_requests": [],
+  "system_bug_report": null,
+  "acceptance_rationale": "仅存风格问题，无连续性和覆盖率风险，可经重写修复后采用"
+}

@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "severity": "none",
+  "coverage_ratio": 1,
+  "covered_required_items": [
+    "li-jin-xiao-royal-lineage",
+    "mustard-green-hallucination",
+    "yu-shi-and-yan-jade-night",
+    "yue-nian-lei-identity",
+    "ji-fang-hua-spy-training",
+    "yan-er-half-zhu-silver-needle-and-plum-blossom-hairpin",
+    "yan-er-invites-to-red-green-kiss",
+    "zhou-ning-tong-helps-with-umbrellas",
+    "snakebite-and-rescue",
+    "ding-hao-tian-steals-ji-le-gong",
+    "emperor-and-empress-ping-hun-model",
+    "qi-value-measurement",
+    "yan-er-puberty-change"
+  ],
+  "missing_required_items": [],
+  "compressed_items": [
+    "腌芥菜的详细过程简化为购买、装缸、密封，保留幻听核心",
+    "做伞技术细节压缩至凝彤指导、送花卉油纸",
+    "县学通勤一笔带过",
+    "竹林环境简化，保留蛇咬关键事件",
+    "绿谨轩结构精简，只保留匾额“羞染红杏”",
+    "其他师伯师叔教功细节压缩为简短交代"
+  ],
+  "unapproved_additions": [],
+  "root_cause": "无",
+  "next_revision_orders": "无需修改，改写稿已完整保留所有硬事实。"
+}
