@@ -140,14 +140,36 @@ function shouldEnforceSexRatio(mood) {
   return false;
 }
 
-function maxOutputRatioForChapter(mood, customRules) {
+function requiredItemCount(sourceObligations) {
+  return normalizeIssueList(sourceObligations?.required_items).length;
+}
+
+function maxOutputRatioForChapter(mood, customRules, sourceObligations) {
   const style = customRules.global_style ?? {};
   const sceneContentType = normalizeSeverity(mood?.scene_content_type);
   if (sceneContentType === "explicit_sex") return null;
   if (sceneContentType === "plot_setup" || sceneContentType === "action_or_worldbuilding") {
+    if (requiredItemCount(sourceObligations) >= Number(style.dense_obligation_min_count ?? 8)) {
+      return Number(style.dense_plot_setup_max_output_ratio ?? 0.55);
+    }
     return Number(style.plot_setup_max_output_ratio ?? 0.45);
   }
   return Number(style.non_erotic_max_output_ratio ?? 0.5);
+}
+
+function normalizeCoverageAudit(audit) {
+  const missingRequiredItems = normalizeIssueList(audit?.missing_required_items);
+  const normalized = {
+    ...(audit ?? {}),
+    missing_required_items: missingRequiredItems
+  };
+  if (missingRequiredItems.length > 0) {
+    normalized.passed = false;
+    normalized.severity = normalized.severity ?? "major";
+    normalized.root_cause = normalized.root_cause ?? "覆盖率审计发现 required_items 缺失。";
+    normalized.next_revision_orders = normalizeIssueList(normalized.next_revision_orders);
+  }
+  return normalized;
 }
 
 function auditSeverity(audit) {
@@ -503,13 +525,14 @@ async function auditRewriteCoverage(client, chapter, rewritten, mood, sourceObli
     `导演指令：${JSON.stringify(directorNotes)}\n\n` +
     `章节标题：${chapter.title}\n\n原文：\n${chapter.content.slice(0, 12000)}\n\n改写稿：\n${rewritten}`;
 
-  return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
+  const result = await callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
     jsonMode: true,
     temperature: 0.1,
     logger,
     stage: "coverage_audit",
     ...meta
   });
+  return normalizeCoverageAudit(result);
 }
 
 async function agentRepairPlanner(client, chapter, mood, sourceObligations, styleQa, continuityQa, coverageAudit, previousFeedback, logger, meta) {
@@ -649,11 +672,11 @@ function estimateSexRatio(text) {
   return Number((hits / sentences.length).toFixed(3));
 }
 
-async function agentQa(client, rewritten, chapter, mood, projectConfig, customRules, logger, meta) {
+async function agentQa(client, rewritten, chapter, mood, sourceObligations, projectConfig, customRules, logger, meta) {
   const forbiddenHits = localForbiddenScan(rewritten, customRules);
   const ratio = estimateSexRatio(rewritten);
   const enforceSexRatio = shouldEnforceSexRatio(mood);
-  const maxOutputRatio = maxOutputRatioForChapter(mood, customRules);
+  const maxOutputRatio = maxOutputRatioForChapter(mood, customRules, sourceObligations);
   const outputRatio = chapter.content.length > 0 ? Number((rewritten.length / chapter.content.length).toFixed(3)) : 0;
   const systemPrompt =
     "你是 Agent C 质检打磨师。请检查禁用比喻词命中、动作连续性、用词合规、" +
@@ -673,7 +696,8 @@ async function agentQa(client, rewritten, chapter, mood, projectConfig, customRu
     `性描写句占比估算：${ratio}\n` +
     `本章是否强制检查色情占比：${enforceSexRatio}\n` +
     `输出/原文字数比例：${outputRatio}\n` +
-    `本章最大建议比例：${maxOutputRatio ?? "explicit_sex 不限制"}\n\n` +
+    `本章最大建议比例：${maxOutputRatio ?? "explicit_sex 不限制"}\n` +
+    `本章硬事实数量：${requiredItemCount(sourceObligations)}\n\n` +
     `基调分析：${JSON.stringify(mood)}\n\n原文：${chapter.content.slice(0, 6000)}\n\n改写稿：${rewritten}`;
 
   const result = await callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
@@ -728,6 +752,37 @@ async function agentStyleFixer(client, rewritten, chapter, mood, sourceObligatio
     temperature: 0.2,
     logger,
     stage: "style_fix",
+    ...meta
+  });
+}
+
+async function agentFinalRepair(client, rewritten, chapter, mood, sourceObligations, styleQa, continuityQa, coverageAudit, repairPlan, customRules, logger, meta) {
+  const systemPrompt =
+    "你是 Agent G 最终定向修复师。你只根据修复命令改稿，不重新构思剧情。" +
+    "必须同时完成：修复风格违规、恢复缺失硬伏笔、压缩非核心内容、保持连续性。只输出修复后的完整正文，不输出解释。";
+  const userPrompt =
+    "请对下面改写稿做最终定向修复。\n" +
+    "硬性要求：\n" +
+    "1）逐条执行 Agent E repair_orders。\n" +
+    "2）如果缺失 required_items，必须补回，但用最短句子补回，不展开无关细节。\n" +
+    "3）删除禁用比喻结构和禁用雅称。\n" +
+    "4）非 explicit_sex 章节继续压缩，优先删背景、理论、招式拆解、路人反应和环境描写。\n" +
+    "5）不得新增事件，不得改变人物关系、年龄、身份、章节标题和时间顺序。\n\n" +
+    `配置：${compactConfig({}, customRules)}\n\n` +
+    `基调分析：${JSON.stringify(mood)}\n\n` +
+    `原文硬事实清单：${JSON.stringify(sourceObligations)}\n\n` +
+    `风格质检：${JSON.stringify(styleQa)}\n\n` +
+    `连续性质检：${JSON.stringify(continuityQa)}\n\n` +
+    `覆盖率审计：${JSON.stringify(coverageAudit)}\n\n` +
+    `Agent E 修复计划：${JSON.stringify(repairPlan)}\n\n` +
+    `章节标题：${chapter.title}\n\n` +
+    `待最终修复正文：\n${rewritten}`;
+
+  return callLlm(client, [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], {
+    jsonMode: false,
+    temperature: 0.2,
+    logger,
+    stage: "final_repair",
     ...meta
   });
 }
@@ -878,7 +933,7 @@ async function rebuildAcceptedOutput(run) {
   return accepted.join("\n\n");
 }
 
-async function processChapter(client, run, chapter, chapterIndex, total, projectConfig, customRules, knowledgeBase, state, maxAttempts, contextTailChars, allowForcedAcceptOnContinuityFailure, styleFixAttempts, logger) {
+async function processChapter(client, run, chapter, chapterIndex, total, projectConfig, customRules, knowledgeBase, state, maxAttempts, contextTailChars, allowForcedAcceptOnContinuityFailure, styleFixAttempts, finalRepairAttempts, logger) {
   const chapterState = run.manifest.chapters[chapterIndex];
   const dir = path.join(run.chaptersDir, chapterDirName(chapterIndex, chapter.title));
   await ensureDir(dir);
@@ -934,7 +989,7 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
     );
     await atomicWrite(path.join(dir, `attempt_${attempt}.txt`), lastDraft);
 
-    lastStyleQa = await agentQa(client, lastDraft, chapter, mood, projectConfig, customRules, logger, attemptMeta);
+    lastStyleQa = await agentQa(client, lastDraft, chapter, mood, sourceObligations, projectConfig, customRules, logger, attemptMeta);
     await writeJson(path.join(dir, `attempt_${attempt}_style_qa.json`), lastStyleQa);
 
     lastContinuityQa = await agentContinuityQa(client, lastDraft, chapter, mood, state.summaryState.previousSummary, state.factsLedger, logger, attemptMeta);
@@ -981,7 +1036,7 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
         );
         await atomicWrite(path.join(dir, `attempt_${attempt}_style_fix_${fixAttempt}.txt`), fixedDraft);
 
-        const fixedStyleQa = await agentQa(client, fixedDraft, chapter, mood, projectConfig, customRules, logger, fixMeta);
+        const fixedStyleQa = await agentQa(client, fixedDraft, chapter, mood, sourceObligations, projectConfig, customRules, logger, fixMeta);
         await writeJson(path.join(dir, `attempt_${attempt}_style_fix_${fixAttempt}_style_qa.json`), fixedStyleQa);
 
         const fixedContinuityQa = await agentContinuityQa(client, fixedDraft, chapter, mood, state.summaryState.previousSummary, state.factsLedger, logger, fixMeta);
@@ -1123,6 +1178,71 @@ async function processChapter(client, run, chapter, chapterIndex, total, project
   }
 
   if (!accepted) {
+    const canFinalRepair = ["retry_rewrite", "refresh_context_then_retry"].includes(normalizeDecision(lastRepairPlan?.decision));
+    if (canFinalRepair && finalRepairAttempts > 0) {
+      for (let repairAttempt = 1; repairAttempt <= finalRepairAttempts; repairAttempt += 1) {
+        const repairMeta = { ...meta, attempt: `final.${repairAttempt}` };
+        await logger.event("info", "final_repair_start", {
+          ...repairMeta,
+          message: `最终定向修复 ${repairAttempt}/${finalRepairAttempts}`
+        });
+
+        const repairedDraft = await agentFinalRepair(
+          client,
+          lastDraft,
+          chapter,
+          mood,
+          sourceObligations,
+          lastStyleQa,
+          lastContinuityQa,
+          lastCoverageAudit,
+          lastRepairPlan,
+          customRules,
+          logger,
+          repairMeta
+        );
+        await atomicWrite(path.join(dir, `final_repair_${repairAttempt}.txt`), repairedDraft);
+
+        const repairedStyleQa = await agentQa(client, repairedDraft, chapter, mood, sourceObligations, projectConfig, customRules, logger, repairMeta);
+        await writeJson(path.join(dir, `final_repair_${repairAttempt}_style_qa.json`), repairedStyleQa);
+
+        const repairedContinuityQa = await agentContinuityQa(client, repairedDraft, chapter, mood, state.summaryState.previousSummary, state.factsLedger, logger, repairMeta);
+        await writeJson(path.join(dir, `final_repair_${repairAttempt}_continuity_qa.json`), repairedContinuityQa);
+
+        const repairedCoverageAudit = await auditRewriteCoverage(client, chapter, repairedDraft, mood, sourceObligations, { final_repair: true }, logger, repairMeta);
+        await writeJson(path.join(dir, `final_repair_${repairAttempt}_rewrite_audit.json`), repairedCoverageAudit);
+
+        lastDraft = repairedDraft;
+        lastStyleQa = repairedStyleQa;
+        lastContinuityQa = repairedContinuityQa;
+        lastCoverageAudit = repairedCoverageAudit;
+
+        const repairedPassed = Boolean(lastStyleQa.passed) && Boolean(lastContinuityQa.passed) && Boolean(lastCoverageAudit.passed);
+        await logger.event(repairedPassed ? "info" : "warn", "final_repair_result", {
+          ...repairMeta,
+          passed: repairedPassed,
+          stylePassed: Boolean(lastStyleQa.passed),
+          continuityPassed: Boolean(lastContinuityQa.passed),
+          coveragePassed: Boolean(lastCoverageAudit.passed),
+          message: `style=${Boolean(lastStyleQa.passed)}, continuity=${Boolean(lastContinuityQa.passed)}, coverage=${Boolean(lastCoverageAudit.passed)}`
+        });
+
+        if (repairedPassed) {
+          accepted = lastDraft;
+          acceptedQa = {
+            style: lastStyleQa,
+            continuity: lastContinuityQa,
+            coverage: lastCoverageAudit,
+            repair_plan: lastRepairPlan,
+            final_repair: true
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  if (!accepted) {
     const continuityPassed = Boolean(lastContinuityQa?.passed);
     const blockingSeverities = customRules.global_style?.blocking_continuity_severities ?? ["critical", "high", "blocker"];
     const blockingContinuity = isBlockingContinuityQa(
@@ -1239,6 +1359,7 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
   const contextTailChars = Number(style.context_tail_chars ?? 1200);
   const allowForcedAcceptOnContinuityFailure = Boolean(style.allow_forced_accept_on_continuity_failure ?? false);
   const styleFixAttempts = Number(style.style_fix_attempts ?? 2);
+  const finalRepairAttempts = Number(style.final_repair_attempts ?? 1);
   const chapters = splitChapters(text, fallbackChunkChars);
 
   const run = resumeRunDir
@@ -1259,7 +1380,8 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
     maxAttempts,
     contextTailChars,
     allowForcedAcceptOnContinuityFailure,
-    styleFixAttempts
+    styleFixAttempts,
+    finalRepairAttempts
   };
   await saveManifest(run);
 
@@ -1298,6 +1420,7 @@ async function processNovel(txtPath, knowledgeBasePath, resumeRunDir = "") {
       contextTailChars,
       allowForcedAcceptOnContinuityFailure,
       styleFixAttempts,
+      finalRepairAttempts,
       logger
     );
   }
